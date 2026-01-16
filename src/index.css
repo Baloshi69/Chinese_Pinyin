@@ -1,0 +1,345 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  font-family: 'Inter', system-ui, sans-serif;
+  --primary: #4F46E5;
+  --primary-light: #818CF8;
+  --bg: #F1F5F9;
+  --card-bg: #FFFFFF;
+  --text: #1E293B;
+  --text-muted: #64748B;
+  --border: #E2E8F0;
+  --header-bg: #334155;
+  --cell-size: 48px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Compact Header */
+header {
+  padding: 10px 20px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+h1 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+header p {
+  display: none;
+}
+
+/* Minimal Toggle */
+.language-selector {
+  display: flex;
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.lang-btn {
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.lang-btn.active {
+  background: var(--primary);
+  color: white;
+}
+
+/* Chart Container */
+main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.chart-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.pinyin-grid {
+  display: grid;
+  grid-template-columns: 55px repeat(23, minmax(52px, 1fr));
+  width: max-content;
+}
+
+/* All Cells Base */
+.cell {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  height: var(--cell-size);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  padding: 3px;
+}
+
+.cell:hover {
+  background: #EEF2FF;
+  border-color: var(--primary-light);
+  z-index: 5;
+}
+
+.cell-active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+.cell-active .pinyin-text,
+.cell-active .phonetic-text {
+  color: white !important;
+}
+
+/* Typography - Harmonious Pairing */
+.pinyin-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 1px;
+}
+
+.phonetic-text {
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  direction: rtl;
+  line-height: 1.2;
+}
+
+/* Sticky Headers - Solid Background */
+.header-col,
+.header-row,
+.corner-cell {
+  background: var(--header-bg) !important;
+  color: white !important;
+  font-weight: 600;
+  border: none !important;
+  font-size: 0.7rem;
+}
+
+/* Fixed First Column */
+.header-col {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Fixed First Row */
+.header-row {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Corner Cell - Highest Priority */
+.corner-cell {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  font-size: 0.55rem;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-col .phonetic-text,
+.header-row .phonetic-text,
+.corner-cell .phonetic-text {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 0.75rem;
+}
+
+.header-col .pinyin-text,
+.header-row .pinyin-text {
+  color: white !important;
+}
+
+.empty-cell {
+  background: #F8FAFC;
+  border-color: #F1F5F9;
+  pointer-events: none;
+}
+
+/* Clean Popover */
+.popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+}
+
+.popover-card {
+  position: fixed;
+  z-index: 1000;
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  width: 200px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.popover-card::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+}
+
+.popover-card.bottom::before {
+  top: -14px;
+  border-bottom-color: white;
+}
+
+.popover-card.top::before {
+  bottom: -14px;
+  border-top-color: white;
+}
+
+.popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.popover-pinyin {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.popover-phonetic {
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  font-size: 1rem;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.popover-close {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popover-close:hover {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.popover-tones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.tone-item {
+  background: var(--bg);
+  border-radius: 5px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.12s;
+}
+
+.tone-item:hover {
+  border-color: var(--primary-light);
+  background: white;
+}
+
+.tone-text {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.play-icon {
+  color: var(--primary);
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
