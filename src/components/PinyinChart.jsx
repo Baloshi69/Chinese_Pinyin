@@ -4,6 +4,7 @@ import TonePopover from './ToneModal'; // Using the same file, logic changed
 
 const PinyinChart = ({ language }) => {
     const [selectedCell, setSelectedCell] = useState(null); // { pinyin, phonetic, anchorPosition }
+    const [hoveredCell, setHoveredCell] = useState({ initial: null, final: null });
 
     const handleCellClick = (e, pinyin, phonetic) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -18,9 +19,25 @@ const PinyinChart = ({ language }) => {
     const renderCell = (initial, final) => {
         const valid = isValidSyllable(initial, final);
 
+        // Highlight check logic
+        const isRowHovered = hoveredCell.final === final;
+        const isColHovered = hoveredCell.initial === initial;
+
+        // Even empty cells should trigger the crosshair highlight to feel responsive
+        // But invalid cells are currently "empty-cell" div. Let's make them interactive for hover if desired, 
+        // or just keep them transparent. User asked for "when it hover a cell".
+        // Usually, empty cells in a chart might still be hoverable for grid tracking.
+        // Let's attach hover listeners to empty cells too? 
+        // Logic: if validity check fails, we return an empty div. We should probably wrap it to allow mouse events.
+
         if (!valid) {
             return (
-                <div key={`${initial}-${final}`} className="cell empty-cell">
+                <div
+                    key={`${initial}-${final}`}
+                    className={`cell empty-cell ${isRowHovered ? 'row-hover' : ''} ${isColHovered ? 'col-hover' : ''}`}
+                    onMouseEnter={() => setHoveredCell({ initial, final })}
+                    onMouseLeave={() => setHoveredCell({ initial: null, final: null })}
+                >
                     {/* Empty */}
                 </div>
             );
@@ -29,15 +46,17 @@ const PinyinChart = ({ language }) => {
         const pinyin = getDisplayPinyin(initial, final);
         const phonetic = getPhonetic(initial, final, language);
 
-        // Check if this cell is currently selected for active styling
+        // Check active selection
         const isActive = selectedCell?.pinyin === pinyin;
 
         return (
             <div
                 key={`${initial}-${final}`}
-                className={`cell ${isActive ? 'cell-active' : ''}`}
+                className={`cell ${isActive ? 'cell-active' : ''} ${isRowHovered ? 'row-hover' : ''} ${isColHovered ? 'col-hover' : ''}`}
                 title={`${pinyin} = ${phonetic}`}
                 onClick={(e) => handleCellClick(e, pinyin, phonetic)}
+                onMouseEnter={() => setHoveredCell({ initial, final })}
+                onMouseLeave={() => setHoveredCell({ initial: null, final: null })}
             >
                 <div className="pinyin-text">{pinyin}</div>
                 <div className="phonetic-text">{phonetic}</div>
@@ -64,7 +83,10 @@ const PinyinChart = ({ language }) => {
 
                     {/* Header Row (Initials) */}
                     {initials.map(initial => (
-                        <div key={initial} className="cell header-row">
+                        <div
+                            key={initial}
+                            className={`cell header-row ${hoveredCell.initial === initial ? 'header-highlight' : ''}`}
+                        >
                             <div className="pinyin-text">{initial}</div>
                             <div className="phonetic-text">{pronunciationNotations.initials[initial][language]}</div>
                         </div>
@@ -74,7 +96,9 @@ const PinyinChart = ({ language }) => {
                     {finals.map(final => (
                         <React.Fragment key={final}>
                             {/* Header Column (Final) */}
-                            <div className="cell header-col">
+                            <div
+                                className={`cell header-col ${hoveredCell.final === final ? 'header-highlight' : ''}`}
+                            >
                                 <div className="pinyin-text">-{final}</div>
                                 <div className="phonetic-text">{pronunciationNotations.finals[final][language]}</div>
                             </div>

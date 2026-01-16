@@ -260,6 +260,23 @@ main {
   box-shadow: 4px 4px 12px rgba(0, 33, 71, 0.08);
 }
 
+/* Cross-Hair Highlight (Headers) */
+.header-highlight {
+  background: #e2e8f0 !important;
+  /* Slightly darker slate to indicate active state */
+  color: var(--primary) !important;
+  /* Highlight text color */
+  border-color: var(--primary) !important;
+  z-index: 25;
+  /* Ensure above normal headers */
+  transition: all 0.1s ease;
+}
+
+.header-highlight .pinyin-text,
+.header-highlight .phonetic-text {
+  color: var(--primary) !important;
+}
+
 .header-col .phonetic-text,
 .header-row .phonetic-text {
   color: rgba(0, 33, 71, 0.6) !important;
