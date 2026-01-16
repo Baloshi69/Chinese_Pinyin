@@ -92,6 +92,24 @@ const TonePopover = ({ pinyin, phonetic, isOpen, onClose, anchorPosition }) => {
     return (
         <>
             <div className="popover-backdrop" onClick={onClose}></div>
+
+            {/* Spotlight: Clone of the clicked cell above the blur */}
+            {anchorPosition && (
+                <div
+                    className="spotlight-cell"
+                    style={{
+                        top: anchorPosition.top,
+                        left: anchorPosition.left,
+                        width: anchorPosition.width,
+                        height: anchorPosition.height,
+                    }}
+                    onClick={onClose}
+                >
+                    <div className="pinyin-text">{pinyin}</div>
+                    <div className="phonetic-text">{phonetic}</div>
+                </div>
+            )}
+
             <div className={`popover-card ${placement}`} ref={popoverRef} style={style} onClick={e => e.stopPropagation()}>
                 <button className="popover-close" onClick={onClose}>×</button>
 
