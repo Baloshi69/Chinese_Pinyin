@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { initials, finals, isValidSyllable, getDisplayPinyin, getPhonetic, getStandalone, pronunciationNotations, displayFinalMap } from '../pinyinData';
 import TonePopover from './ToneModal';
 
-const PinyinChart = ({ language, displayMode, onToggleMode }) => {
+const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) => {
     const [selectedCell, setSelectedCell] = useState(null);
     const [hoveredCell, setHoveredCell] = useState({ initial: null, final: null, rowIndex: null });
+    const cellRefs = useRef({});
+
+    // Auto-scroll to searched cell
+    useEffect(() => {
+        if (searchQuery && searchQuery.length >= 1) {
+            const matchedRef = cellRefs.current[searchQuery.toLowerCase()];
+            if (matchedRef) {
+                matchedRef.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }
+        }
+    }, [searchQuery]);
 
     const handleCellClick = (e, pinyin, phonetic) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -13,6 +24,12 @@ const PinyinChart = ({ language, displayMode, onToggleMode }) => {
             phonetic,
             anchorPosition: rect
         });
+    };
+
+    // Check if this pinyin matches search query
+    const isSearchMatch = (pinyin) => {
+        if (!searchQuery || searchQuery.length < 1) return false;
+        return pinyin.toLowerCase() === searchQuery.toLowerCase();
     };
 
     // Helper to render a data cell
@@ -36,11 +53,13 @@ const PinyinChart = ({ language, displayMode, onToggleMode }) => {
         const pinyin = getDisplayPinyin(initial, final);
         const phonetic = getPhonetic(initial, final, language, displayMode);
         const isActive = selectedCell?.pinyin === pinyin;
+        const isMatch = isSearchMatch(pinyin);
 
         return (
             <div
                 key={`${initial}-${final}-${rowIndex}`}
-                className={`cell ${isActive ? 'cell-active' : ''} ${isRowHovered ? 'row-hover' : ''} ${isColHovered ? 'col-hover' : ''}`}
+                ref={(el) => { cellRefs.current[pinyin.toLowerCase()] = el; }}
+                className={`cell ${isActive ? 'cell-active' : ''} ${isMatch ? 'cell-search-match' : ''} ${isRowHovered ? 'row-hover' : ''} ${isColHovered ? 'col-hover' : ''}`}
                 title={`${pinyin} = ${phonetic}`}
                 onClick={(e) => handleCellClick(e, pinyin, phonetic)}
                 onMouseEnter={() => setHoveredCell({ initial, final, rowIndex })}
@@ -72,11 +91,13 @@ const PinyinChart = ({ language, displayMode, onToggleMode }) => {
         // Get phonetic for standalone (no initial)
         const phonetic = pronunciationNotations.finals[final]?.[language] || '';
         const isActive = selectedCell?.pinyin === standalone;
+        const isMatch = isSearchMatch(standalone);
 
         return (
             <div
                 key={`standalone-${final}-${rowIndex}`}
-                className={`cell standalone-cell ${isActive ? 'cell-active' : ''} ${isRowHovered ? 'row-hover' : ''}`}
+                ref={(el) => { cellRefs.current[standalone.toLowerCase()] = el; }}
+                className={`cell standalone-cell ${isActive ? 'cell-active' : ''} ${isMatch ? 'cell-search-match' : ''} ${isRowHovered ? 'row-hover' : ''}`}
                 title={`${standalone} = ${phonetic}`}
                 onClick={(e) => handleCellClick(e, standalone, phonetic)}
                 onMouseEnter={() => setHoveredCell({ initial: null, final, rowIndex })}
