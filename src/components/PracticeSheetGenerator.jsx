@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { pinyin } from 'pinyin-pro';
 import { pronunciationNotations } from '../pinyinData';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const PracticeSheetGenerator = () => {
     // ========== STATE ==========
@@ -276,9 +278,6 @@ const PracticeSheetGenerator = () => {
 
     // ========== SENTENCE MODE COMPONENT ==========
     const SentenceGrid = () => {
-        // Get characters from the current sentence being displayed
-        const sentenceChars = sentenceChips.flatMap(s => s.split('').filter(c => /[\u4e00-\u9fff]/.test(c)));
-
         return (
             <div className="sentence-container">
                 {/* Show each sentence */}
@@ -287,57 +286,29 @@ const PracticeSheetGenerator = () => {
 
                     return (
                         <div key={sentenceIdx} className="sentence-block">
-                            {/* Sentence Header - Redesigned horizontal layout */}
-                            <div className="sentence-header">
-                                <div className="sentence-label">Sentence {sentenceIdx + 1}</div>
-
-                                {/* Pinyin Row */}
-                                {showPinyin && (
-                                    <div className="sentence-row-pinyin">
-                                        {chars.map((char, idx) => (
-                                            <span key={idx} className="pinyin-item">{getPinyin(char)}</span>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Characters Row - Large */}
-                                <div className="sentence-row-hanzi">
-                                    {chars.map((char, idx) => (
-                                        <span key={idx} className="hanzi-item">{char}</span>
-                                    ))}
+                            {/* Sentence Header - Redesigned compact vertical layout */}
+                            <div className="sentence-header-compact">
+                                <div className="sentence-meta">
+                                    <span className="sentence-num">{sentenceIdx + 1}</span>
+                                    {showTranslation && (
+                                        <span className="sentence-meaning">
+                                            {chars.map(c => getTranslation(c)).filter(t => t).join(' ')}
+                                        </span>
+                                    )}
                                 </div>
 
-                                {/* Urdu Row */}
-                                {showUrdu && (
-                                    <div className="sentence-row-urdu">
-                                        {chars.map((char, idx) => (
-                                            <span key={idx} className="urdu-item">{getUrdu(char)}</span>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Full Translation */}
-                                {showTranslation && (
-                                    <div className="sentence-translation">
-                                        <span className="translation-label">Meaning:</span>
-                                        {chars.map(c => getTranslation(c)).filter(t => t).join(' ')}
-                                    </div>
-                                )}
-
-                                {/* Character-by-character breakdown */}
-                                {showTranslation && (
-                                    <div className="char-breakdown">
-                                        {chars.map((char, idx) => (
-                                            <div key={idx} className="breakdown-item">
-                                                <span className="breakdown-char">{char}</span>
-                                                <span className="breakdown-meaning">{getTranslation(char) || '—'}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                <div className="chars-flow">
+                                    {chars.map((char, idx) => (
+                                        <div key={idx} className="char-stack">
+                                            {showPinyin && <span className="stack-pinyin">{getPinyin(char)}</span>}
+                                            <span className="stack-hanzi">{char}</span>
+                                            {showUrdu && <span className="stack-urdu">{getUrdu(char)}</span>}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
-                            {/* Practice Rows - Copy the entire sentence */}
+                            {/* Practice Rows */}
                             <div className="sentence-practice-rows">
                                 {/* First row: Master sentence with tracing */}
                                 <div className="sentence-row">
@@ -375,6 +346,64 @@ const PracticeSheetGenerator = () => {
     const handlePrint = () => window.print();
     const closeStrokeAnim = () => setStrokeAnimChar(null);
 
+    // Reference for PDF content
+    const pdfContentRef = useRef(null);
+
+    // PDF Export Function
+    const handleExportPDF = async () => {
+        const content = pdfContentRef.current;
+        if (!content) return;
+
+        try {
+            // A4 dimensions at 150 DPI for good quality
+            const A4_WIDTH_MM = 210;
+            const A4_HEIGHT_MM = 297;
+            const MARGIN_MM = 10;
+            const SCALE = 2; // Higher scale = better quality
+
+            // Capture the content as a canvas
+            const canvas = await html2canvas(content, {
+                scale: SCALE,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+            });
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const imgWidth = A4_WIDTH_MM - (2 * MARGIN_MM);
+            const pageHeight = A4_HEIGHT_MM - (2 * MARGIN_MM);
+
+            // Calculate image height in mm (preserving aspect ratio)
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            // Create PDF
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            let heightLeft = imgHeight;
+            let position = MARGIN_MM;
+            let pageNumber = 1;
+
+            // Add first page
+            pdf.addImage(imgData, 'JPEG', MARGIN_MM, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            // Add subsequent pages if content is longer than one page
+            while (heightLeft > 0) {
+                position = heightLeft - imgHeight + MARGIN_MM;
+                pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', MARGIN_MM, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+                pageNumber++;
+            }
+
+            // Download
+            pdf.save(`practice-sheet-${new Date().toISOString().slice(0, 10)}.pdf`);
+        } catch (error) {
+            console.error('PDF generation failed:', error);
+            alert('Failed to generate PDF. Please try again.');
+        }
+    };
+
     // ========== RENDER ==========
     return (
         <div className="practice-sheet-v2">
@@ -382,15 +411,86 @@ const PracticeSheetGenerator = () => {
             <div className="practice-controls no-print">
                 <header className="practice-header">
                     <h1>Practice Sheet Creator</h1>
-                    <button className="btn-print" onClick={handlePrint}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                            <rect x="6" y="14" width="12" height="8"></rect>
+                    <button className="btn-print" onClick={handleExportPDF}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
-                        Print
+                        Download PDF
                     </button>
                 </header>
+
+                {/* Settings Row */}
+                <div className="settings-grid">
+                    {/* Mode Toggle */}
+                    <div className="setting-group">
+                        <label>Mode</label>
+                        <div className="toggle-group">
+                            <button className={mode === 'word' ? 'active' : ''} onClick={() => setMode('word')}>Word</button>
+                            <button className={mode === 'sentence' ? 'active' : ''} onClick={() => setMode('sentence')}>Sentence</button>
+                        </div>
+                    </div>
+
+                    {/* Grid Style */}
+                    <div className="setting-group">
+                        <label>Grid Style</label>
+                        <div className="toggle-group">
+                            {['tian', 'mi', 'hui', 'jing', 'square'].map(g => (
+                                <button key={g} className={gridType === g ? 'active' : ''} onClick={() => setGridType(g)}>
+                                    {g === 'tian' ? '田' : g === 'mi' ? '米' : g === 'hui' ? '回' : g === 'jing' ? '井' : '□'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Box Size */}
+                    <div className="setting-group">
+                        <label>Size: {boxSize}px</label>
+                        <input type="range" min="40" max="100" value={boxSize} onChange={(e) => setBoxSize(Number(e.target.value))} />
+                    </div>
+
+                    {/* Boxes Number Settings - Mode Conditional */}
+                    {mode === 'word' && (
+                        <div className="setting-group">
+                            <label>Boxes/Row: {boxesPerRow}</label>
+                            <input type="range" min="5" max="15" value={boxesPerRow} onChange={(e) => setBoxesPerRow(Number(e.target.value))} />
+                        </div>
+                    )}
+
+                    {/* Fade Count */}
+                    <div className="setting-group">
+                        <label>Fade: {fadeCount}</label>
+                        <input type="range" min="0" max="5" value={fadeCount} onChange={(e) => setFadeCount(Number(e.target.value))} />
+                    </div>
+
+                    {mode === 'sentence' && (
+                        <div className="setting-group">
+                            <label>Rows/Char: {sentenceRows}</label>
+                            <input type="range" min="1" max="6" value={sentenceRows} onChange={(e) => setSentenceRows(Number(e.target.value))} />
+                        </div>
+                    )}
+
+                    {/* Toggles */}
+                    <div className="setting-group toggles">
+                        <label>
+                            <input type="checkbox" checked={showPinyin} onChange={(e) => setShowPinyin(e.target.checked)} />
+                            Pinyin
+                        </label>
+                        <label>
+                            <input type="checkbox" checked={showUrdu} onChange={(e) => setShowUrdu(e.target.checked)} />
+                            اُردو
+                        </label>
+                        <label>
+                            <input type="checkbox" checked={showTranslation} onChange={(e) => setShowTranslation(e.target.checked)} />
+                            English
+                        </label>
+                        <label>
+                            <input type="checkbox" checked={showTracing} onChange={(e) => setShowTracing(e.target.checked)} />
+                            Tracing
+                        </label>
+                    </div>
+                </div>
 
                 {/* Input Section */}
                 <div className="control-section">
@@ -424,88 +524,72 @@ const PracticeSheetGenerator = () => {
                         />
                     </div>
                 </div>
-
-                {/* Settings Row */}
-                <div className="settings-grid">
-                    {/* Mode Toggle */}
-                    <div className="setting-group">
-                        <label>Mode</label>
-                        <div className="toggle-group">
-                            <button className={mode === 'word' ? 'active' : ''} onClick={() => setMode('word')}>Word</button>
-                            <button className={mode === 'sentence' ? 'active' : ''} onClick={() => setMode('sentence')}>Sentence</button>
-                        </div>
-                    </div>
-
-                    {/* Grid Style */}
-                    <div className="setting-group">
-                        <label>Grid Style</label>
-                        <div className="toggle-group">
-                            {['tian', 'mi', 'hui', 'jing', 'square'].map(g => (
-                                <button key={g} className={gridType === g ? 'active' : ''} onClick={() => setGridType(g)}>
-                                    {g === 'tian' ? '田' : g === 'mi' ? '米' : g === 'hui' ? '回' : g === 'jing' ? '井' : '□'}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Box Size */}
-                    <div className="setting-group">
-                        <label>Size: {boxSize}px</label>
-                        <input type="range" min="40" max="100" value={boxSize} onChange={(e) => setBoxSize(Number(e.target.value))} />
-                    </div>
-
-                    {/* Boxes Per Row */}
-                    <div className="setting-group">
-                        <label>Boxes/Row: {boxesPerRow}</label>
-                        <input type="range" min="5" max="15" value={boxesPerRow} onChange={(e) => setBoxesPerRow(Number(e.target.value))} />
-                    </div>
-
-                    {/* Fade Count */}
-                    <div className="setting-group">
-                        <label>Fade: {fadeCount}</label>
-                        <input type="range" min="0" max="5" value={fadeCount} onChange={(e) => setFadeCount(Number(e.target.value))} />
-                    </div>
-
-                    {/* Sentence Rows (only for sentence mode) */}
-                    {mode === 'sentence' && (
-                        <div className="setting-group">
-                            <label>Rows/Char: {sentenceRows}</label>
-                            <input type="range" min="1" max="6" value={sentenceRows} onChange={(e) => setSentenceRows(Number(e.target.value))} />
-                        </div>
-                    )}
-
-                    {/* Toggles */}
-                    <div className="setting-group toggles">
-                        <label>
-                            <input type="checkbox" checked={showPinyin} onChange={(e) => setShowPinyin(e.target.checked)} />
-                            Pinyin
-                        </label>
-                        <label>
-                            <input type="checkbox" checked={showUrdu} onChange={(e) => setShowUrdu(e.target.checked)} />
-                            اُردو
-                        </label>
-                        <label>
-                            <input type="checkbox" checked={showTranslation} onChange={(e) => setShowTranslation(e.target.checked)} />
-                            English
-                        </label>
-                        <label>
-                            <input type="checkbox" checked={showTracing} onChange={(e) => setShowTracing(e.target.checked)} />
-                            Tracing
-                        </label>
-                    </div>
-                </div>
             </div>
 
             {/* ===== PREVIEW AREA ===== */}
             <div className="sheet-preview">
-                <div className="print-page">
+                {/* Single container for PDF capture */}
+                <div ref={pdfContentRef} className="print-page" style={{ minHeight: 'auto' }}>
                     {characters.length > 0 ? (
                         mode === 'word' ? (
                             characters.map((char, idx) => (
                                 <WordRow key={idx} char={char} pinyinText={getPinyin(char)} />
                             ))
                         ) : (
-                            <SentenceGrid />
+                            <div className="sentence-container">
+                                {sentenceChips.map((sentence, sentenceIdx) => {
+                                    const chars = sentence.split('').filter(c => /[\u4e00-\u9fff]/.test(c));
+
+                                    return (
+                                        <div key={sentenceIdx} className="sentence-block">
+                                            {/* Sentence Header */}
+                                            <div className="sentence-header-compact">
+                                                <div className="sentence-meta">
+                                                    <span className="sentence-num">{sentenceIdx + 1}</span>
+                                                    {showTranslation && (
+                                                        <span className="sentence-meaning">
+                                                            {chars.map(c => getTranslation(c)).filter(t => t).join(' ')}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="chars-flow">
+                                                    {chars.map((char, idx) => (
+                                                        <div key={idx} className="char-stack">
+                                                            {showPinyin && <span className="stack-pinyin">{getPinyin(char)}</span>}
+                                                            <span className="stack-hanzi">{char}</span>
+                                                            {showUrdu && <span className="stack-urdu">{getUrdu(char)}</span>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Practice Rows */}
+                                            <div className="sentence-practice-rows">
+                                                <div className="sentence-row">
+                                                    {chars.map((char, idx) => (
+                                                        <GridBox key={idx} char={char} type={gridType} opacity={1} size={boxSize} />
+                                                    ))}
+                                                </div>
+                                                {showTracing && (
+                                                    <div className="sentence-row tracing-row">
+                                                        {chars.map((char, idx) => (
+                                                            <GridBox key={idx} char={char} type={gridType} opacity={0.25} size={boxSize} />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {Array.from({ length: sentenceRows }).map((_, rowIdx) => (
+                                                    <div key={rowIdx} className="sentence-row blank-row">
+                                                        {chars.map((char, idx) => (
+                                                            <GridBox key={idx} type={gridType} size={boxSize} />
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         )
                     ) : (
                         <div className="empty-state">
@@ -531,162 +615,104 @@ const PracticeSheetGenerator = () => {
             {/* ===== STYLES ===== */}
             <style>{`
                 .practice-sheet-v2 {
-                    height: 100%;
+                    height: 100vh;
                     display: flex;
                     flex-direction: column;
-                    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ed 100%);
+                    background: #f4f4f5; /* Zinc-100 */
                     font-family: 'Inter', -apple-system, sans-serif;
+                    overflow: hidden;
+                    width: 100%;
+                    margin-top: 0;
+                    position: absolute; /* Force top alignment */
+                    top: 0;
+                    right: 0;
+                    left: 0;
                 }
 
-                /* ===== CONTROLS ===== */
+                @media print {
+                   @page {
+                        margin: 0;
+                        size: auto;
+                    }
+
+                    body, html, #root, .app-layout, .main-content {
+                        height: auto !important;
+                        overflow: visible !important;
+                        background: white !important;
+                        display: block !important;
+                        position: static !important;
+                        width: 100% !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+
+                    .practice-sheet-v2 {
+                        height: auto !important;
+                        display: block !important;
+                        overflow: visible !important;
+                        background: white !important;
+                        border: none !important;
+                        position: static !important; /* Reset absolute positioning */
+                        width: 100% !important;
+                    }
+
+                    .practice-controls, .no-print {
+                        display: none !important;
+                    }
+
+                    .sheet-preview {
+                        padding: 0 !important;
+                        overflow: visible !important;
+                        display: block !important;
+                        height: auto !important;
+                        background: white !important;
+                    }
+
+                    .print-page {
+                        width: 100% !important;
+                        max-width: none !important;
+                        box-shadow: none !important;
+                        padding: 10mm !important;
+                        margin: 0 !important;
+                        border-radius: 0 !important;
+                        height: auto !important;
+                        min-height: 0 !important;
+                    }
+
+                    .sentence-block, .word-row {
+                        break-inside: avoid;
+                        page-break-inside: avoid;
+                        border: none !important;
+                        padding: 0 !important;
+                        margin-bottom: 20px !important;
+                        background: transparent !important;
+                    }
+                    
+                    .sentence-header-compact {
+                        border-bottom: 2px solid var(--primary) !important;
+                    }
+                }
+
+                /* ===== CONTROLS (GLOBAL THEME) ===== */
                 .practice-controls {
-                    background: white;
-                    padding: 20px 24px;
+                    background: #ffffff;
+                    padding: 0;
                     border-bottom: 1px solid #e2e8f0;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+                    box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.05);
                     z-index: 10;
+                    flex-shrink: 0;
+                    color: var(--text);
                 }
 
                 .practice-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 20px;
-                }
-
-                .practice-header h1 {
-                    font-size: 1.5rem;
-                    font-weight: 700;
-                    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-                    -webkit-background-clip: text;
-                    background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    margin: 0;
-                }
-
-                .btn-print {
-                    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 10px;
-                    display: flex;
-                    gap: 8px;
-                    align-items: center;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                }
-
-                .btn-print:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
-                }
-
-                .control-section {
-                    margin-bottom: 16px;
-                }
-
-                .control-section label {
-                    display: block;
-                    font-weight: 600;
-                    color: #475569;
-                    margin-bottom: 6px;
-                    font-size: 0.9rem;
-                }
-
-                /* ===== CHIPS INPUT ===== */
-                .chips-container {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
-                    padding: 10px 12px;
-                    background: white;
-                    border: 2px solid #e2e8f0;
-                    border-radius: 10px;
-                    min-height: 50px;
-                    align-items: center;
-                    transition: border-color 0.2s;
-                }
-
-                .chips-container:focus-within {
-                    border-color: #2563eb;
-                }
-
-                .chip {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    padding: 6px 10px;
-                    border-radius: 8px;
-                    font-weight: 500;
-                    animation: chipPop 0.2s ease;
-                }
-
-                @keyframes chipPop {
-                    0% { transform: scale(0.8); opacity: 0; }
-                    100% { transform: scale(1); opacity: 1; }
-                }
-
-                .word-chip {
-                    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-                    border: 1px solid #93c5fd;
-                    flex-direction: column;
-                    padding: 4px 10px 6px;
-                }
-
-                .word-chip .chip-pinyin {
-                    font-size: 0.65rem;
-                    color: #dc2626;
-                    font-weight: 500;
-                }
-
-                .word-chip .chip-text {
-                    font-size: 1.4rem;
-                    color: #1e3a5f;
-                    font-family: 'KaiTi', 'Kaiti SC', serif;
-                    line-height: 1;
-                }
-
-                .sentence-chip {
-                    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-                    border: 1px solid #fbbf24;
-                }
-
-                .sentence-chip .chip-text {
-                    font-size: 1rem;
-                    color: #92400e;
-                }
-
-                .chip-remove {
-                    background: rgba(0,0,0,0.1);
-                    border: none;
-                    width: 18px;
-                    height: 18px;
-                    border-radius: 50%;
-                    font-size: 1rem;
-                    line-height: 1;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #64748b;
-                    transition: all 0.15s;
-                }
-
-                .chip-remove:hover {
-                    background: #ef4444;
-                    color: white;
-                }
-
-                .chip-input {
-                    flex: 1;
-                    min-width: 120px;
-                    border: none;
-                    outline: none;
-                    font-size: 1.1rem;
-                    padding: 6px 0;
-                    background: transparent;
+                    margin-bottom: 0;
+                    padding: 12px 24px;
+                    border-bottom: 1px solid #f1f5f9;
+                    width: 100%;
+                    background: var(--header-bg); /* Use app header background (Navy) */
                 }
 
                 .settings-grid {
@@ -694,7 +720,174 @@ const PracticeSheetGenerator = () => {
                     flex-wrap: wrap;
                     gap: 16px;
                     align-items: flex-end;
+                    margin-bottom: 16px;
+                    padding: 16px 24px;
+                    border-bottom: 1px solid #f1f5f9;
                 }
+
+                .control-section {
+                    padding: 0 24px 16px 24px;
+                }
+
+                .practice-header h1 {
+                    font-size: 1.25rem;
+                    font-weight: 700;
+                    color: white; /* Header text is white on Navy */
+                    letter-spacing: 0.02em;
+                    margin: 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                
+                .practice-header h1::before {
+                    display: none; /* Remove yellow bar accent */
+                }
+                
+                .practice-header h1::after {
+                    display: none;
+                }
+
+                .btn-print {
+                    background: var(--primary); /* Brand Orange */
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    display: flex;
+                    gap: 6px;
+                    align-items: center;
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+
+                .btn-print:hover {
+                    background: #d0741b; /* Darker Orange */
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+                }
+                
+                .btn-print:active {
+                    transform: translateY(0);
+                }
+
+                .control-section {
+                    margin-bottom: 12px;
+                }
+
+                .control-section label {
+                    display: block;
+                    font-weight: 600;
+                    color: #64748b;
+                    margin-bottom: 6px;
+                    font-size: 0.75rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+
+                /* ===== CHIPS INPUT (COMPACT) ===== */
+                .chips-container {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    padding: 6px 10px;
+                    background: #fff;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 8px;
+                    min-height: 42px;
+                    align-items: center;
+                    transition: all 0.15s ease;
+                }
+
+                .chips-container:focus-within {
+                    border-color: var(--primary); /* Brand Orange */
+                    box-shadow: 0 0 0 3px var(--primary-glow);
+                }
+
+                .chip {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 4px 8px;
+                    border-radius: 6px;
+                    font-weight: 500;
+                    font-size: 0.85rem;
+                    animation: chipPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                }
+
+                @keyframes chipPop {
+                    0% { transform: scale(0.9); opacity: 0; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+
+                .word-chip {
+                    background: #f1f5f9;
+                    border: 1px solid #e2e8f0;
+                    flex-direction: row;
+                    padding: 4px 8px;
+                }
+                
+                .word-chip .chip-text {
+                    color: #334155;
+                    font-family: 'KaiTi', serif;
+                    font-size: 1.1rem;
+                }
+
+                .sentence-chip {
+                    background: #FFF5EB; /* Light Orange Tint */
+                    border: 1px solid #FED7AA; /* Muted Orange Border */
+                    color: #9A3412; /* Dark Orange Text */
+                }
+                
+                .sentence-chip .chip-text {
+                     color: #854d0e;
+                     font-size: 0.9rem;
+                }
+
+                .chip-remove {
+                    background: transparent;
+                    border: none;
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 50%;
+                    font-size: 1rem;
+                    line-height: 1;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #94a3b8;
+                    margin-left: 2px;
+                    padding: 0;
+                }
+
+                .chip-remove:hover {
+                    color: #ef4444;
+                    background: #fee2e2;
+                }
+
+                .chip-input {
+                    flex: 1;
+                    min-width: 120px;
+                    border: none;
+                    outline: none;
+                    font-size: 0.9rem;
+                    padding: 4px 0;
+                    background: transparent;
+                    color: #1e293b;
+                    font-weight: 400;
+                    caret-color: var(--primary);
+                }
+                
+                .chip-input::placeholder {
+                    color: #94a3b8;
+                    font-size: 0.85rem;
+                }
+
+
 
                 .setting-group {
                     display: flex;
@@ -703,9 +896,11 @@ const PracticeSheetGenerator = () => {
                 }
 
                 .setting-group label {
-                    font-size: 0.8rem;
+                    font-size: 0.7rem;
                     font-weight: 600;
                     color: #64748b;
+                    text-transform: uppercase;
+                    margin: 0;
                 }
 
                 .toggle-group {
@@ -714,6 +909,7 @@ const PracticeSheetGenerator = () => {
                     border-radius: 8px;
                     padding: 3px;
                     gap: 2px;
+                    border: 1px solid #e2e8f0;
                 }
 
                 .toggle-group button {
@@ -723,61 +919,78 @@ const PracticeSheetGenerator = () => {
                     background: transparent;
                     color: #64748b;
                     cursor: pointer;
-                    font-weight: 600;
-                    font-size: 0.85rem;
+                    font-weight: 500;
+                    font-size: 0.8rem;
                     transition: all 0.15s;
                 }
 
                 .toggle-group button.active {
-                    background: white;
-                    color: #1e3a5f;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                    background: var(--primary); /* Brand Orange */
+                    color: white;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                    font-weight: 600;
+                }
+                
+                .toggle-group button:hover:not(.active) {
+                    background: rgba(0,0,0,0.02);
                 }
 
                 .setting-group input[type="range"] {
                     width: 100px;
                     cursor: pointer;
+                    accent-color: var(--primary); /* Brand Orange */
                 }
 
                 .setting-group.toggles {
                     flex-direction: row;
                     gap: 16px;
+                    background: transparent;
+                    padding: 4px 0;
+                    border-radius: 0;
+                    border: none;
                 }
-
+                
                 .setting-group.toggles label {
                     display: flex;
                     align-items: center;
                     gap: 6px;
                     cursor: pointer;
+                    color: #475569;
+                    text-transform: none;
+                    font-size: 0.85rem;
                 }
 
                 .setting-group.toggles input[type="checkbox"] {
+                    accent-color: var(--primary); /* Brand Orange */
                     width: 16px;
                     height: 16px;
                     cursor: pointer;
+                    border-radius: 4px;
                 }
 
-                /* ===== PREVIEW ===== */
+                /* ===== PREVIEW AREA ===== */
                 .sheet-preview {
                     flex: 1;
                     overflow: auto;
-                    padding: 30px;
+                    padding: 40px;
                     display: flex;
-                    justify-content: center;
+                    flex-direction: column; /* Stack pages vertically */
+                    align-items: center;    /* Center pages horizontally */
+                    gap: 40px;              /* Space between pages */
+                    background: #e4e4e7;
                 }
 
                 .print-page {
                     background: white;
                     width: 210mm;
                     max-width: 100%;
-                    min-height: auto;
-                    padding: 15mm 20mm;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+                    min-height: 297mm; /* Visual preference only on screen */
+                    padding: 8mm 12mm; /* Super Compact padding */
+                    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.15);
                     border-radius: 4px;
                     display: flex;
                     flex-direction: column;
-                    gap: 10px;
-                    overflow-x: hidden;
+                    gap: 16px;
                 }
 
                 /* ===== WORD ROW ===== */
@@ -846,20 +1059,27 @@ const PracticeSheetGenerator = () => {
                     background: #e2e8f0;
                 }
 
-                /* ===== SENTENCE MODE ===== */
+                /* ===== SENTENCE BLOCK (NANO STYLE) ===== */
                 .sentence-container {
                     display: flex;
-                    flex-wrap: wrap;
-                    gap: 24px;
+                    flex-wrap: nowrap; /* Keep all on same row */
+                    gap: 12px;
+                    align-items: flex-start;
+                    justify-content: flex-start;
+                    overflow-x: auto; /* Allow scroll if needed */
                 }
 
                 .sentence-block {
-                    border: 2px solid #e2e8f0;
-                    border-radius: 12px;
-                    overflow: hidden;
-                    flex: 1 1 auto;
-                    min-width: 300px;
+                    margin: 0;
+                    padding: 12px;
+                    break-inside: avoid;
+                    flex: 0 1 calc(33.33% - 12px); /* 3 per row with gap */
+                    min-width: 200px;
                     max-width: 100%;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    box-sizing: border-box;
+                    background: #fff;
                 }
 
                 .sentence-header {
@@ -944,6 +1164,84 @@ const PracticeSheetGenerator = () => {
                     color: #1e40af;
                 }
 
+
+                /* ===== SENTENCE BLOCK ===== */
+                .sentence-block {
+                    page-break-inside: avoid;
+                }
+
+                .sentence-header-compact {
+                    display: flex;
+                    flex-direction: column;
+                    margin-bottom: 4px;
+                    padding-bottom: 4px;
+                    border-bottom: 2px solid var(--primary); /* Strong yellow/orange underline */
+                }
+
+                .sentence-meta {
+                    display: flex;
+                    align-items: center; /* Center align */
+                    gap: 12px;
+                    margin-bottom: 8px;
+                }
+
+                .sentence-num {
+                    font-size: 0.8rem;
+                    font-weight: 800;
+                    color: #fff;
+                    background: #18181b; /* Black badge */
+                    padding: 4px 8px;
+                    border-radius: 6px;
+                    line-height: 1;
+                }
+
+                .sentence-meaning {
+                    font-size: 0.95rem;
+                    color: #4b5563;
+                    font-weight: 500;
+                }
+
+                .chars-flow {
+                    display: flex;
+                    flex-wrap: nowrap; /* Keep all chars on one line */
+                    gap: 8px;
+                    align-items: flex-end;
+                    padding: 4px 0;
+                }
+
+                .char-stack {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    margin-right: 2px;
+                    min-width: 2.8em;
+                    position: relative;
+                }
+                
+                /* Stack Item Spacing */
+                .stack-pinyin {
+                    font-size: 0.85rem;
+                    color: #dc2626;
+                    font-family: 'Inter', sans-serif;
+                    font-weight: 600;
+                    margin-bottom: 2px;
+                }
+
+                .stack-hanzi {
+                    font-family: 'KaiTi', 'Kaiti SC', serif;
+                    font-size: 2.2rem;
+                    color: #18181b;
+                    line-height: 1;
+                    margin: 2px 0;
+                }
+
+                .stack-urdu {
+                    font-size: 1rem;
+                    color: #1e3a5f; /* Deep Blue for Urdu */
+                    font-family: 'Noto Nastaliq Urdu', serif;
+                    margin-top: 2px;
+                }
+
                 /* Character Breakdown Table */
                 .char-breakdown {
                     display: flex;
@@ -1007,11 +1305,11 @@ const PracticeSheetGenerator = () => {
                     font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
                 }
 
+                /* ===== PRACTICE ROWS ===== */
                 .sentence-practice-rows {
-                    padding: 12px;
                     display: flex;
                     flex-direction: column;
-                    gap: 4px;
+                    gap: 0;
                     background: #fafafa;
                     max-width: 100%;
                     overflow-x: hidden;
@@ -1019,9 +1317,22 @@ const PracticeSheetGenerator = () => {
 
                 .sentence-row {
                     display: flex;
-                    gap: 2px;
-                    flex-wrap: wrap;
+                    gap: 0;
+                    flex-wrap: nowrap; /* Keep all boxes on one line */
                     max-width: 100%;
+                }
+                
+                .grid-box {
+                    border-right: 1px dashed #cbd5e1;
+                    border-bottom: 1px dashed #cbd5e1;
+                }
+                
+                .sentence-row .grid-box:first-child {
+                    border-left: 1px dashed #cbd5e1;
+                }
+                
+                .sentence-row:first-child .grid-box {
+                    border-top: 1px dashed #cbd5e1;
                 }
 
                 .sentence-row.tracing-row {
@@ -1075,8 +1386,9 @@ const PracticeSheetGenerator = () => {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    height: 300px;
+                    height: 400px;
                     color: #94a3b8;
+                    text-align: center;
                 }
 
                 .empty-icon {
@@ -1178,7 +1490,7 @@ const PracticeSheetGenerator = () => {
                     }
                 }
             `}</style>
-        </div>
+        </div >
     );
 };
 
