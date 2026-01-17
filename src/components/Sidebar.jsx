@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Sidebar = () => {
+const Sidebar = ({ currentView, onNavigate }) => {
     const [isCollapsed, setIsCollapsed] = useState(true); // Default to collapsed (Icons only)
 
     const handleExpand = () => {
@@ -16,7 +16,11 @@ const Sidebar = () => {
                 </div>
 
                 <nav className="sidebar-nav">
-                    <button className="nav-item active" title="Chart" onClick={handleExpand}>
+                    <button
+                        className={`nav-item ${currentView === 'chart' ? 'active' : ''}`}
+                        title="Chart"
+                        onClick={() => { handleExpand(); onNavigate('chart'); }}
+                    >
                         <div className="nav-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <rect x="3" y="3" width="7" height="7"></rect>
@@ -27,7 +31,20 @@ const Sidebar = () => {
                         </div>
                         <span className="nav-text">Chart</span>
                     </button>
-                    <button className="nav-item" title="Info" onClick={handleExpand}>
+                    <button
+                        className={`nav-item ${currentView === 'practice' ? 'active' : ''}`}
+                        title="Practice Sheet"
+                        onClick={() => { handleExpand(); onNavigate('practice'); }}
+                    >
+                        <div className="nav-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M12 20h9"></path>
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                            </svg>
+                        </div>
+                        <span className="nav-text">Practice</span>
+                    </button>
+                    <button className="nav-item" title="Info">
                         <div className="nav-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <circle cx="12" cy="12" r="10"></circle>
