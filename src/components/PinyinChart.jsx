@@ -12,6 +12,7 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
     const [isPlayingSequence, setIsPlayingSequence] = useState(false);
     const [currentlyPlayingPinyin, setCurrentlyPlayingPinyin] = useState(null);
     const [currentlyPlayingTone, setCurrentlyPlayingTone] = useState(null); // 1, 2, 3, or 4
+    const [playingHighlight, setPlayingHighlight] = useState({ initial: null, final: null, rowIndex: null });
     const audioQueueRef = useRef([]);
     const currentAudioRef = useRef(null);
 
@@ -24,6 +25,35 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
             }
         }
     }, [searchQuery]);
+
+    // Find cell coordinates for currently playing pinyin to highlight headers/crosshair
+    useEffect(() => {
+        if (!currentlyPlayingPinyin) {
+            setPlayingHighlight({ initial: null, final: null, rowIndex: null });
+            return;
+        }
+
+        // Optimization: if we just came from queue, we already know what it is? 
+        // No, queue has pinyin strings.
+        // Reverse lookup coordinates:
+        for (let i = 0; i < finals.length; i++) {
+            const final = finals[i];
+
+            // Check standalone
+            if (getStandalone(final) === currentlyPlayingPinyin) {
+                setPlayingHighlight({ initial: null, final, rowIndex: i });
+                return;
+            }
+
+            // Check initials
+            for (const initial of initials) {
+                if (getDisplayPinyin(initial, final) === currentlyPlayingPinyin) {
+                    setPlayingHighlight({ initial, final, rowIndex: i });
+                    return;
+                }
+            }
+        }
+    }, [currentlyPlayingPinyin]);
 
     const handleCellClick = (e, pinyin, phonetic) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -109,7 +139,7 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
             }
 
             const safePinyin = pinyin.replace('ü', 'v');
-            const url = `/Mandarin_sounds/cmn-${safePinyin}${tone}.mp3`;
+            const url = `/PinyinSound/${safePinyin}${tone}.mp3`;
 
             const audio = new Audio(url);
             currentAudioRef.current = audio;
@@ -143,6 +173,7 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
         setIsPlayingSequence(false);
         setCurrentlyPlayingPinyin(null);
         setCurrentlyPlayingTone(null);
+        setPlayingHighlight({ initial: null, final: null, rowIndex: null });
     };
 
     // Handle play all for header
@@ -174,8 +205,9 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
     const renderCell = (initial, final, rowIndex) => {
         const valid = isValidSyllable(initial, final, rowIndex);
 
-        const isRowHovered = hoveredCell.rowIndex === rowIndex;
-        const isColHovered = hoveredCell.initial === initial;
+        const currentHighlight = isPlayingSequence && playingHighlight.rowIndex !== null ? playingHighlight : hoveredCell;
+        const isRowHovered = currentHighlight.rowIndex === rowIndex;
+        const isColHovered = currentHighlight.initial === initial;
 
         if (!valid) {
             return (
@@ -216,7 +248,8 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
     // Render standalone cell (column 2)
     const renderStandaloneCell = (final, rowIndex) => {
         const standalone = getStandalone(final);
-        const isRowHovered = hoveredCell.rowIndex === rowIndex;
+        const currentHighlight = isPlayingSequence && playingHighlight.rowIndex !== null ? playingHighlight : hoveredCell;
+        const isRowHovered = currentHighlight.rowIndex === rowIndex;
 
         // Special first 'i' row has no standalone
         if (standalone === null || standalone === undefined) {
@@ -262,6 +295,9 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
 
     // Grid columns: corner + standalone + initials.length
     const gridColumns = 2 + initials.length;
+
+    // Determine effective highlight for headers
+    const currentHighlight = isPlayingSequence && playingHighlight.rowIndex !== null ? playingHighlight : hoveredCell;
 
     return (
         <>
@@ -342,7 +378,7 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
                     {initials.map(initial => (
                         <div
                             key={initial}
-                            className={`cell header-row header-clickable ${hoveredCell.initial === initial ? 'header-highlight' : ''}`}
+                            className={`cell header-row header-clickable ${currentHighlight.initial === initial ? 'header-highlight' : ''}`}
                             onClick={(e) => handleHeaderClick(e, 'initial', initial)}
                             title={`Click to play all "${initial}" sounds`}
                         >
@@ -356,7 +392,7 @@ const PinyinChart = ({ language, displayMode, onToggleMode, searchQuery = '' }) 
                         <React.Fragment key={`row-${rowIndex}`}>
                             {/* Final Header (clickable for row playback) */}
                             <div
-                                className={`cell header-col header-clickable ${hoveredCell.rowIndex === rowIndex ? 'header-highlight' : ''}`}
+                                className={`cell header-col header-clickable ${currentHighlight.rowIndex === rowIndex ? 'header-highlight' : ''}`}
                                 onClick={(e) => handleHeaderClick(e, 'final', final)}
                                 title={`Click to play all "-${getDisplayFinal(final)}" sounds`}
                             >

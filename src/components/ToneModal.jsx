@@ -50,7 +50,7 @@ const TonePopover = ({ pinyin, phonetic, isOpen, onClose, anchorPosition }) => {
 
         // Convert ü to v for file naming (lü → lv, nü → nv) - audio-cmn format
         const safePinyin = pinyin.replace('ü', 'v');
-        const url = `/Mandarin_sounds/cmn-${safePinyin}${toneNumber}.mp3`;
+        const url = `/PinyinSound/${safePinyin}${toneNumber}.mp3`;
 
         const audio = new Audio(url);
         currentAudioRef.current = audio;
