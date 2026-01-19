@@ -573,8 +573,15 @@ const PracticeSheetGenerator = () => {
 
                 {/* Character Boxes */}
                 <div className="row-boxes">
-                    {/* Animated master character */}
-                    <AnimatedWordBox char={char} type={gridType} size={boxSize} />
+                    {/* Animated master character - Hidden in PDF */}
+                    <div className="animated-word-box-container">
+                        <AnimatedWordBox char={char} type={gridType} size={boxSize} />
+                    </div>
+
+                    {/* Static fallback for PDF - Visible only in PDF */}
+                    <div className="static-word-box-reference" style={{ display: 'none' }}>
+                        <GridBox char={char} type={gridType} size={boxSize} />
+                    </div>
 
                     {/* Faded tracing boxes - starts light, gets DARKER */}
                     {showTracing && Array.from({ length: fadeCount }).map((_, i) => {
@@ -1363,6 +1370,12 @@ const PracticeSheetGenerator = () => {
                 }
                 .pdf-mode .static-reference-row {
                     display: flex !important;
+                }
+                .pdf-mode .animated-word-box-container {
+                     display: none !important;
+                }
+                .pdf-mode .static-word-box-reference {
+                     display: block !important;
                 }
                 .pdf-mode .modal-play-btn {
                     display: none !important;
