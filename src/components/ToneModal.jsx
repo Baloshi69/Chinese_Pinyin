@@ -1,5 +1,5 @@
 import React, { useRef, useState, useLayoutEffect } from 'react';
-import { getTones } from '../pinyinData';
+import { getTones, getPhonetic, pronunciationNotations } from '../pinyinData';
 
 const TonePopover = ({ pinyin, phonetic, isOpen, onClose, anchorPosition }) => {
     const popoverRef = useRef(null);
@@ -40,6 +40,38 @@ const TonePopover = ({ pinyin, phonetic, isOpen, onClose, anchorPosition }) => {
     if (!isOpen) return null;
 
     const tones = getTones(pinyin);
+
+    // Parse pinyin into initial + final for tone-aware Urdu lookup
+    const parsePinyinParts = (py) => {
+        // Order by length to match longer initials first (zh, ch, sh before z, c, s)
+        const sortedInitials = Object.keys(pronunciationNotations.initials).sort((a, b) => b.length - a.length);
+        for (const initial of sortedInitials) {
+            if (py.startsWith(initial)) {
+                return { initial, final: py.slice(initial.length) };
+            }
+        }
+        return { initial: null, final: py }; // standalone (no initial)
+    };
+
+    // Get tone-specific Urdu transliteration
+    const getToneUrdu = (toneNum) => {
+        const { initial, final } = parsePinyinParts(pinyin);
+
+        // Map display finals back to internal representation
+        const finalMap = { 'iu': 'iou', 'ui': 'uei', 'un': 'uen' };
+        const internalFinal = finalMap[final] || final;
+
+        if (initial) {
+            return getPhonetic(initial, internalFinal, 'urdu', 'joined', toneNum);
+        }
+        // For standalone syllables, just return the final's Urdu
+        const fData = pronunciationNotations.finals[internalFinal];
+        if (toneNum === 4 && fData?.urduTone4) {
+            return fData.urduTone4;
+        }
+        return fData?.urdu || '';
+    };
+
 
     const playAudio = (toneNumber) => {
         // Stop any currently playing audio
@@ -133,6 +165,7 @@ const TonePopover = ({ pinyin, phonetic, isOpen, onClose, anchorPosition }) => {
                             >
                                 <div className="tone-info">
                                     <span className="tone-char">{t}</span>
+                                    <span className="tone-urdu">{getToneUrdu(toneNum)}</span>
                                     <span className="tone-label">{toneLabels[index]}</span>
                                 </div>
                                 <div className="play-btn">

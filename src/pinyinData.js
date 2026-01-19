@@ -56,94 +56,424 @@ export const displayFinalMap = {
 // Corrects Anglocentric errors in standard Pinyin mappings
 // ============================================================================
 
+// ============================================================================
+// TONAL MAPPING KEY (Punjabi/Urdu Synthesis Model)
+// - Initials: Pinyin 'b' = [p] (voiceless) → پ (Pe) for exact sound
+// - Tone 4 (Falling): Uses بھ (Bhe) which triggers falling-tone [p] in Punjabi
+// - Tones 1, 2, 3: Standard پ (Pe), optionally Maddah (پآ) for Tone 1 high onset
+// ============================================================================
+
 export const pronunciationNotations = {
   initials: {
-    // === STOP CONSONANTS (The Unvoicing Shift) ===
-    // Pinyin stops are UNVOICED [p, t, k] - never use voiced Urdu letters
-    b: { urdu: 'پ', ipa: '[p]', note: 'Unvoiced – NOT ب. Like "p" without air puff' },
-    p: { urdu: 'پھ', ipa: '[pʰ]', note: 'Aspirated – with puff of air' },
-    d: { urdu: 'ت', ipa: '[t]', note: 'Unvoiced – NOT د. Soft dental' },
-    t: { urdu: 'تھ', ipa: '[tʰ]', note: 'Aspirated' },
-    g: { urdu: 'ک', ipa: '[k]', note: 'Unvoiced – NOT گ' },
-    k: { urdu: 'کھ', ipa: '[kʰ]', note: 'Aspirated' },
+    // === STOP CONSONANTS (Tonal Mapping System) ===
+    // Pinyin 'b' is voiceless [p]. Using پ for standard tones, بھ for Tone 4 (falling)
+    b: {
+      urdu: 'پ',           // Standard (Tones 1, 2, 3)
+      urduTone4: 'بھ',     // Tone 4 (Falling) - Punjabi tonal mechanism
+      ipa: '[p]',
+      note: 'Voiceless unaspirated p. Tone 4 uses بھ for falling tone.'
+    },
+    // Pinyin 'p' (Aspirated p) -> Urdu 'پھ', Tone 4 uses Tashdid for falling emphasis
+    p: {
+      urdu: 'پھ',           // Standard (Tones 1, 2, 3) - Aspirated
+      urduTone4: 'پھّ',     // Tone 4 (Falling) - Tashdid on he for heavy emphasis
+      ipa: '[pʰ]',
+      note: 'Aspirated p. Tone 4 uses Tashdid (ّ) for falling tone emphasis.'
+    },
+
+    // Pinyin 'd' (Unaspirated t) -> Urdu 'ت' (Convention) - UPDATED: Uses 'ت' + 'دھ' for T4
+    d: {
+      urdu: 'ت',
+      urduTone4: 'دھ',     // Tone 4: Voiceless Falling (Punjabi mechanism)
+      ipa: '[t]',
+      note: 'Unaspirated t. Tone 4 uses دھ (Falling Tone).'
+    },
+    // Pinyin 't' (Aspirated t) -> Urdu 'تھ'
+    t: {
+      urdu: 'تھ',
+      urduTone4: 'تھّ',    // Tone 4: Tashdid (Intensity)
+      ipa: '[tʰ]',
+      note: 'Aspirated t. Tone 4 uses Tashdid (ّ) for falling tone intensity.'
+    },
+
+    // Pinyin 'g' (Unaspirated k) -> Urdu 'ک' (Convention) - UPDATED: Uses 'ک' + 'گھ' for T4
+    g: {
+      urdu: 'ک',
+      urduTone4: 'گھ',     // Tone 4: Voiceless Falling (Punjabi mechanism)
+      ipa: '[k]',
+      note: 'Unaspirated k. Tone 4 uses گھ (Falling Tone).'
+    },
+    // Pinyin 'k' (Aspirated k) -> Urdu 'کھ'
+    k: {
+      urdu: 'کھ',
+      urduTone4: 'کھّ',    // Tone 4: Tashdid (Intensity)
+      ipa: '[kʰ]',
+      note: 'Aspirated k. Tone 4 uses Tashdid (ّ) for falling tone intensity.'
+    },
 
     // === OTHER CONSONANTS ===
-    m: { urdu: 'م', ipa: '[m]' },
-    f: { urdu: 'ف', ipa: '[f]' },
-    n: { urdu: 'ن', ipa: '[n]' },
-    l: { urdu: 'ل', ipa: '[l]' },
-    h: { urdu: 'خ', ipa: '[x]', note: 'Soft خ – more friction than ہ' },
+    m: {
+      urdu: 'م',
+      urduTone4: 'مھ',     // Tone 4: Murmured Nasal (falling tone)
+      ipa: '[m]',
+      note: 'Tone 4 uses مھ to trigger tonal drop.'
+    },
+    m: {
+      urdu: 'م',
+      urduTone4: 'مھ',     // Tone 4: Murmured Nasal (falling tone)
+      ipa: '[m]',
+      note: 'Tone 4 uses مھ to trigger tonal drop.'
+    },
+    f: {
+      urdu: 'ف',
+      urduTone4: 'فّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[f]',
+      note: 'Tone 4 uses Tashdid (ّ) for intensity.'
+    },
+    n: {
+      urdu: 'ن',
+      urduTone4: 'نھ',     // Tone 4: Murmured Nasal (Falling Tone)
+      ipa: '[n]',
+      note: 'Tone 4 uses نھ to trigger tonal drop.'
+    },
+    l: {
+      urdu: 'ل',
+      urduTone4: 'لھ',     // Tone 4: Murmured Resonant (Falling Tone)
+      ipa: '[l]',
+      note: 'Tone 4 uses sound of lھ (Murmured Lateral) to trigger falling tone.'
+    },
+    h: {
+      urdu: 'خ',
+      urduTone4: 'خّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[x]',
+      note: 'Voiceless Velar Fricative. Tone 4 uses Tashdid (ّ) on initial for intensity.'
+    },
 
-    // === ALVEOLO-PALATAL (Soft/Front – tongue tip DOWN) ===
-    j: { urdu: 'چ', ipa: '[tɕ]', type: 'soft', note: 'Soft – keep tongue tip behind lower teeth' },
-    q: { urdu: 'چھ', ipa: '[tɕʰ]', type: 'soft', note: 'Soft Aspirated – tongue tip down, puff of air' },
-    x: { urdu: 'ش', ipa: '[ɕ]', type: 'soft', note: 'Soft/Hissing – spread lips like smiling' },
+    // === PALATALS ===
+    // === PALATALS ===
+    j: {
+      urdu: 'چ',
+      urduTone4: 'چّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[tɕ]',
+      note: 'Palatal Unaspirated. Tone 4 uses Tashdid (ّ) on initial.'
+    },
+    q: {
+      urdu: 'چھ',
+      urduTone4: 'چّھ',    // Tone 4: Tashdid on first part (Intensity)
+      ipa: '[tɕʰ]',
+      note: 'Palatal Aspirated. Tone 4 uses Tashdid (ّ) on the Che part.'
+    },
+    x: {
+      urdu: 'ش',
+      urduTone4: 'شّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[ɕ]',
+      note: 'Palatal Fricative. Tone 4 uses Tashdid (ّ) on initial.'
+    },
 
-    // === DENTAL SIBILANTS ===
-    z: { urdu: 'ز', ipa: '[ts]', note: 'Like "ds" in kids – unvoiced' },
-    c: { urdu: 'تس', ipa: '[tsʰ]', note: 'Like "ts" in cats – aspirated' },
-    s: { urdu: 'س', ipa: '[s]' },
-
-    // === RETROFLEX (Hard – curl tongue BACK) ===
-    zh: { urdu: 'چ', ipa: '[tʂ]', type: 'hard', note: 'Hard/Retroflex – curl tongue back' },
-    ch: { urdu: 'چھ', ipa: '[tʂʰ]', type: 'hard', note: 'Retroflex Aspirated – curl tongue + puff air' },
-    sh: { urdu: 'ش', ipa: '[ʂ]', type: 'hard', note: 'Retroflex – curl tongue, round lips' },
-    r: { urdu: 'ژ', ipa: '[ɻ]', type: 'hard', note: 'Buzzing ژ – NOT rolling ر' }
+    // === RETROFLEX / DENTAL ===
+    zh: {
+      urdu: 'چ',
+      urduTone4: 'چّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[ʈʂ]',
+      note: 'Retroflex Unaspirated. Tone 4 uses Tashdid (ّ).'
+    },
+    ch: {
+      urdu: 'چھ',
+      urduTone4: 'چّھ',    // Tone 4: Tashdid on first part (Intensity)
+      ipa: '[ʈʂʰ]',
+      note: 'Retroflex Aspirated. Tone 4 uses Tashdid (ّ) on Che.'
+    },
+    sh: {
+      urdu: 'ش',
+      urduTone4: 'شّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[ʂ]',
+      note: 'Retroflex Fricative. Tone 4 uses Tashdid (ّ).'
+    },
+    r: {
+      urdu: 'ژ',
+      urduTone4: 'ژّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[ʐ]',
+      note: 'Retroflex Voiced Fricative. Tone 4 uses Tashdid (ّ).'
+    },
+    z: {
+      urdu: 'ز',
+      urduTone4: 'زّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[ts]',
+      note: 'Affricate. Tone 4 uses Tashdid (ّ).'
+    },
+    c: {
+      urdu: 'تس',
+      urduTone4: 'تّس',    // Tone 4: Tashdid on Te (Intensity)
+      ipa: '[tsʰ]',
+      note: 'Aspirated Affricate. Tone 4 uses Tashdid (ّ) on Te.'
+    },
+    s: {
+      urdu: 'س',
+      urduTone4: 'سّ',     // Tone 4: Tashdid (Intensity)
+      ipa: '[s]',
+      note: 'Sibilant. Tone 4 uses Tashdid (ّ).'
+    }
   },
   finals: {
-    // === OPEN VOWEL ===
-    a: { urdu: 'آ', harakat: 'مدّہ', note: 'Open [a] – use Madda' },
+    // ============================================================================
+    // COMPLETE B SYLLABLE FINALS (from NotebookLLM Research)
+    // Standard uses پ, Tone 4 uses بھ prefix for falling tone marker
+    // ============================================================================
 
-    // === DIPHTHONGS ===
-    ai: { urdu: 'آئی', note: 'a + i glide' },
-    ao: { urdu: 'آؤ', note: 'a + o glide' },
-
-    // === SCHWA GROUP ===
-    e: { urdu: 'اَ', harakat: 'زبر', note: 'Schwa [ə] – Zabar' },
-    ei: { urdu: 'اے', note: 'e + i glide' },
-    er: { urdu: 'اَر', harakat: 'زبر', note: 'Retroflex schwa' },
+    // === A GROUP ===
+    a: {
+      urdu: 'ا',           // Standard (Tone 2/4/Neutral base)
+      urduTone1: 'آ',      // Tone 1: Maddah for length (پھآ)
+      urduTone3: 'اء',     // Tone 3: Hamza for creaky voice (پھاء)
+      urduTone4: 'ا',      // Tone 4: Tashdid on initial handles intensity (پھّا)
+      note: 'Ends with Alif. bà uses bh to trigger falling tone [p].',
+      standalone: {
+        urdu: 'ا',
+        urduTone1: 'آ',
+        urduTone3: 'آء',
+        urduTone4: 'آ'
+      }
+    },
+    ia: {
+      urdu: 'یا', urduTone1: 'ِیا', note: 'ia',
+      standalone: { urdu: 'یا' }
+    },
+    ua: {
+      urdu: 'وا', note: 'ua',
+      standalone: { urdu: 'وا' }
+    },
 
     // === O GROUP ===
-    o: { urdu: 'او', note: 'Back rounded' },
-    ou: { urdu: 'اوُ', harakat: 'پیش', note: 'o + u glide' },
+    o: {
+      urdu: 'و',           // Standard
+      urduTone1: 'وآ',     // Tone 1: Long (پھوآ / موا)
+      urduTone3: 'وء',     // Tone 3: Creaky (پھوء)
+      note: 'Ends with Wao. Bo is pronounced [puɔ].',
+      standalone: {
+        urdu: 'آو',
+        urduTone1: 'آو',
+        urduTone3: 'آوء',
+        urduTone4: 'او'
+      }
+    },
+    uo: {
+      urdu: 'ُوا', note: 'uo',
+      standalone: { urdu: 'وو' }
+    },
+    ou: {
+      urdu: 'او',          // Standard
+      urduTone1: 'آو',     // Tone 1: Long (پھآو)
+      urduTone2: 'َو',     // Tone 2: Zabar (پھَو)
+      urduTone3: 'َوء',    // Tone 3: Zabar + Hamza (پھَوء)
+      urduTone4: 'َّو',    // Tone 4: Tashdid + Zabar (پھَّو) - Override standard final? Request says 'پھَّو' for pou4
+      urduWithZabar: 'َو',
+      note: 'Uses Alif + Wao for ou. Pou uses Zabar to distinguish from po.',
+      standalone: {
+        urdu: 'آو',
+        urduTone1: 'آو',
+        urduTone3: 'آوء',
+        urduTone4: 'اَو'
+      }
+    },
+    iou: {
+      urdu: 'یو',          // Standard
+      urduTone1: 'ِیو',    // Tone 1: With Zer
+      urduTone3: 'یوء',    // Tone 3: With Hamza
+      note: 'iu'
+    },
+    ao: {
+      urdu: 'اؤ',          // Standard
+      urduTone1: 'آؤ',     // Tone 1: Maddah (پھآؤ)
+      urduTone3: 'اؤء',    // Tone 3: Hamza (پھاؤء)
+      note: 'Uses Alif + Wao for ao diphthong.',
+      standalone: {
+        urdu: 'آؤ',
+        urduTone1: 'آؤ',
+        urduTone3: 'آؤء',
+        urduTone4: 'آّؤ'
+      }
+    },
+    iao: {
+      urdu: 'یاؤ',         // Standard
+      urduTone1: 'ِیاؤ',   // Tone 1: With Zer (پھِیاؤ)
+      urduTone3: 'یاوء',   // Tone 3: With Hamza (پھیاوء)
+      note: 'Ye + Alif + Wao for iao.'
+    },
 
-    // === NASAL -N FINALS (Use Jazam ْ) ===
-    an: { urdu: 'اَنْ', harakat: 'زبر+جزم', note: 'Schwa + nasal stop' },
-    en: { urdu: 'اَنْ', harakat: 'زبر+جزم', note: 'Schwa [ə] + n' },
-    in: { urdu: 'یِنْ', harakat: 'زیر+جزم', note: 'High front + nasal' },
+    // === E GROUP ===
+    er: {
+      urdu: 'ر',
+      note: 'er',
+      standalone: {
+        urdu: 'آر',        // Standard/Tone 2
+        urduTone1: 'آر',   // ēr -> آر
+        urduTone3: 'آرء',  // ěr -> آرء
+        urduTone4: 'عَر'   // èr -> عَر or آّر
+      }
+    },
+    e: {
+      urdu: 'ہ',           // Standard: He (Schwa-like)
+      urduTone1: 'آہ',     // Tone 1: Maddah + He
+      urduTone3: 'ہء',     // Tone 3: He + Hamza
+      urduTone4: 'ہ',      // Tone 4: Standard
+      note: 'e',
+      standalone: {
+        urdu: 'اے',
+        urduTone1: 'اے',
+        urduTone3: 'اےء',
+        urduTone4: 'اَے'
+      }
+    },
+    ie: {
+      urdu: 'یے',          // Standard
+      urduTone1: 'ِیے',    // Tone 1: With Zer (پھِیے)
+      urduTone3: 'یےء',    // Tone 3: With Hamza (پھیےء)
+      note: 'Uses Ye + Bari Ye for ie.',
+      standalone: { urdu: 'یے' } // ye
+    },
+    ue: { urdu: 'ِیُوَ', note: 'ue' },
+    ei: {
+      urdu: 'ئے',          // Standard
+      urduTone1: 'آئے',    // Tone 1: Maddah (پھآئے)
+      urduTone3: 'ئےء',    // Tone 3: Hamza (پھئےء)
+      note: 'Mapped as پئے in Urdu Pinyin Table 3.',
+      standalone: {
+        urdu: 'ائے',
+        urduTone1: 'ائے',
+        urduTone3: 'ائےء',
+        urduTone4: 'اّئے'
+      }
+    },
+    uei: { urdu: 'ُوِ', note: 'ui' },
 
-    // === NASAL -NG FINALS (Use ن + گ) ===
-    ang: { urdu: 'آنگ', harakat: 'ن+گ', note: 'Velar nasal [ŋ]' },
-    eng: { urdu: 'اَنگ', harakat: 'زبر+ن+گ', note: 'Schwa + velar nasal' },
-    ong: { urdu: 'ونگ', harakat: 'ن+گ', note: 'Rounded + velar nasal' },
+    // === I GROUP ===
+    i: {
+      urdu: 'ی',           // Standard
+      urduTone1: 'ِی',     // Tone 1: With Zer (پھِی)
+      urduTone3: 'یء',     // Tone 3: Hamza (پھیء)
+      urduTone4: 'ی',      // Tone 4: Tashdid on Initial (پھّی)
+      note: 'Uses Choti Ye for i.',
+      standalone: {
+        urdu: 'اِی',
+        urduTone1: 'اِی',
+        // yi3, yi4 mappings if needed
+      }
+    },
+    ai: {
+      urdu: 'ائی',         // Standard
+      urduTone1: 'آئی',    // Tone 1: Maddah (پھآئی)
+      urduTone3: 'آئے',    // Tone 3: (پھآئے) - As per user request for pǎi
+      note: 'Uses Hamza + Ye for the diphthong ai.',
+      standalone: {
+        urdu: 'آئی',
+        urduTone1: 'آئی',
+        urduTone3: 'آئیء',
+        urduTone4: 'آئے'
+      }
+    },
+    uai: { urdu: 'ُوَئی', note: 'uai' },
 
-    // === HIGH FRONT I GROUP ===
-    i: { urdu: 'ی', harakat: 'زیر', note: 'High front [i]. Buzz after z/c/s/zh/ch/sh/r' },
-    ia: { urdu: 'یا', note: 'i + a' },
-    iao: { urdu: 'یاو', note: 'i + a + o' },
-    ie: { urdu: 'یے', note: 'i + e' },
-    iou: { urdu: 'یو', note: 'Written as -iu' },
-    ian: { urdu: 'یَنْ', harakat: 'زبر+جزم', note: 'i + a + n' },
-    iang: { urdu: 'یانگ', harakat: 'ن+گ', note: 'i + a + velar nasal' },
-    ing: { urdu: 'ینگ', harakat: 'ن+گ', note: 'i + velar nasal' },
-    iong: { urdu: 'یونگ', harakat: 'ن+گ', note: 'i + rounded + velar nasal' },
+    // === U / Ü GROUP ===
+    u: {
+      urdu: 'ُو',          // Standard
+      urduTone1: 'ُو',     // Tone 1: Same
+      urduTone2: 'و',      // Tone 2: No Pesh (پھو)
+      urduTone3: 'وء',     // Tone 3: Hamza (پھوء)
+      note: 'Uses Pesh + Wao for u sound.',
+      standalone: {
+        urdu: 'اُو'
+      }
+    },
+    ü: {
+      urdu: 'ِیُو', note: 'ü',
+      standalone: { urdu: 'اُو' } // yu
+    },
 
-    // === HIGH BACK U GROUP ===
-    u: { urdu: 'و', harakat: 'پیش', note: 'High back rounded [u]' },
-    ua: { urdu: 'وا', note: 'u + a' },
-    uo: { urdu: 'وُو', note: 'u + o' },
-    uai: { urdu: 'وائی', note: 'u + a + i' },
-    uei: { urdu: 'وے', note: 'Written as -ui' },
-    uan: { urdu: 'وَنْ', harakat: 'زبر+جزم', note: 'u + a + n' },
-    uen: { urdu: 'وَنْ', harakat: 'زبر+جزم', note: 'Written as -un' },
-    uang: { urdu: 'وانگ', harakat: 'ن+گ', note: 'u + a + velar nasal' },
-    ueng: { urdu: 'وَنگ', harakat: 'ن+گ', note: 'u + velar nasal (rare)' },
+    // === NASALS - AN GROUP ===
+    an: {
+      urdu: 'ان',          // Standard
+      urduTone1: 'آن',     // Tone 1: Maddah (پھآن)
+      urduTone3: 'anء',    // Tone 3: Hamza (پھانء)
+      note: 'Ends with Noon.',
+      standalone: {
+        urdu: 'آن',
+        urduTone1: 'آن',
+        urduTone3: 'آنء',
+        urduTone4: 'عَن'
+      }
+    },
+    ian: {
+      urdu: 'یان',         // Standard
+      urduTone1: 'ِیان',   // Tone 1: With Zer (پھِیان)
+      urduTone3: 'یانء',   // Tone 3: Hamza (پھیانء)
+      note: 'Ye + Alif + Noon for ian.',
+      // ian standalone is 'yan' (یَن or similar? User didn't specify, skipping for now unless 'ya'+'n' derived)
+    },
+    uan: { urdu: 'وان', note: 'uan' },
+    üan: { urdu: 'ِیُوان', note: 'üan' },
+    üe: { urdu: 'ِیُوَ', note: 'üe' },
 
-    // === FRONT ROUNDED Ü GROUP ===
-    ü: { urdu: 'یُو', harakat: 'پیش', note: 'French U – lips rounded, tongue high front' },
-    üe: { urdu: 'یُوے', note: 'ü + e' },
-    üan: { urdu: 'یُوَنْ', harakat: 'زبر+جزم', note: 'ü + a + n' },
-    ün: { urdu: 'یُنْ', harakat: 'جزم', note: 'ü + n' }
+    // === NASALS - EN GROUP ===
+    en: {
+      urdu: 'ن',           // Standard 
+      urduTone1: 'آن',     // Tone 1: Maddah (پھآن) - As per user request for pen1
+      urduTone3: 'نء',     // Tone 3: Hamza (پھنء)
+      note: 'Mapped as پن in Urdu Pinyin Table 3.',
+      standalone: {
+        urdu: 'اَن',
+        urduTone1: 'اَن',
+        urduTone3: 'اَنء',
+        urduTone4: 'عَن'
+      }
+    },
+    in: {
+      urdu: 'ِن',          // Standard
+      urduTone1: 'ِین',    // Tone 1: Long 'een' (پھِین)
+      urduTone3: 'ِنء',    // Tone 3: Hamza (پھِنء)
+      note: 'Uses Zer (diacritic) + Noon for in sound.'
+    },
+    uen: { urdu: 'ُن', note: 'un' },
+    ün: { urdu: 'ِیُن', note: 'ün' },
+
+    // === NASALS - ANG GROUP ===
+    ang: {
+      urdu: 'انگ',         // Standard
+      urduTone1: 'آنگ',    // Tone 1: Maddah (پھآنگ)
+      urduTone3: 'انگء',   // Tone 3: Hamza (پھانگء)
+      note: 'Uses Noon + Gaf for ng sound.',
+      standalone: {
+        urdu: 'آنگ',
+        urduTone1: 'آنگ',
+        urduTone3: 'آنگء',
+        urduTone4: 'آّنگ'
+      }
+    },
+    iang: { urdu: 'یانگ', urduTone1: 'ِیانگ', note: 'iang' },
+    uang: { urdu: 'ُوانگ', note: 'uang' },
+
+    // === NASALS - ENG GROUP ===
+    eng: {
+      urdu: 'نگ',          // Standard
+      urduTone1: 'آنگ',    // Tone 1: Maddah (پھآنگ) - As per user request for peng1
+      urduTone3: 'نگء',    // Tone 3: Hamza (پھنگء)
+      note: 'Mapped as پنگ in Urdu Pinyin Table 3.',
+      standalone: {
+        urdu: 'اَنگ',
+        urduTone1: 'اَنگ',
+        urduTone3: 'اَنگء',
+        urduTone4: 'عَنگ'
+      }
+    },
+    ing: {
+      urdu: 'ِنگ',         // Standard
+      urduTone1: 'ِینگ',   // Tone 1: Long (پھِینگ)
+      urduTone3: 'ِنگء',   // Tone 3: Hamza (پھِنگء)
+      note: 'Uses Zer + Noon + Gaf for ing sound.'
+    },
+    ueng: { urdu: 'ونگ', note: 'ueng' },
+
+    ong: { urdu: 'ُونگ', note: 'ong' },
+    iong: { urdu: 'یونگ', urduTone1: 'ِیونگ', note: 'iong' }
   }
 };
 
@@ -261,14 +591,99 @@ const validCombinations = [
   'yun', 'jun', 'qun', 'xun'
 ];
 
-export function getPhonetic(initialChar, finalChar, lang, displayMode = 'joined') {
+export function getPhonetic(initialChar, finalChar, lang, displayMode = 'joined', tone = null) {
   const iData = pronunciationNotations.initials[initialChar];
   const fData = pronunciationNotations.finals[finalChar];
 
   if (!iData || !fData) return '';
 
-  const initialText = iData[lang] || '';
-  const finalText = fData[lang] || '';
+  // For Urdu with Tone 4, use the special tonal mapping (بھ prefix instead of پ)
+  const isTone4 = tone === 4 || tone === '4';
+
+  // J/Q/X Vowel Shift Logic: u -> ü, un -> ün, uan -> üan
+  if (initialChar === 'j' || initialChar === 'q' || initialChar === 'x') {
+    if (finalChar === 'u') finalChar = 'ü';
+    if (finalChar === 'un') finalChar = 'ün';
+    if (finalChar === 'uan') finalChar = 'üan';
+    // ue is already distinct from e, but just in case of mapping overlap
+  }
+
+  // Re-fetch final data if finalChar changed
+  const fDataRevised = pronunciationNotations.finals[finalChar];
+  const finalDataToUse = fDataRevised || fData;
+
+  let initialText, finalText;
+
+
+  if (lang === 'urdu') {
+    if (tone === 1 || tone === '1') {
+      // Exception: F, D, T, N, L, G, K, or H initial with en/eng uses short vowels for Tone 1
+      // Exception: F, D, T, N, L, G, K, H, Z, C, or S initial with en/eng uses short vowels for Tone 1
+      // Exception: F, D, T, N, L, G, K, H, Z, C, S, Zh, Ch, Sh, or R initial with en/eng uses short vowels for Tone 1
+      if ((initialChar === 'f' || initialChar === 'd' || initialChar === 't' || initialChar === 'n' || initialChar === 'l' || initialChar === 'g' || initialChar === 'k' || initialChar === 'h' || initialChar === 'z' || initialChar === 'c' || initialChar === 's' || initialChar === 'zh' || initialChar === 'ch' || initialChar === 'sh' || initialChar === 'r') && (finalChar === 'en' || finalChar === 'eng')) {
+        initialText = iData.urduTone1 || iData.urdu || '';
+        // Uses short vowels: فَن, تَنگ, تھَن, نَن, لَن, کَن, کھَن, خَن (consistent short vowel pattern)
+        // Uses short vowels: فَن, تَنگ, تھَن, نَن, لَن, کَن, کھَن, خَن, زَن, تسَن, سَن, چَن, چھَن, شَن, ژَن (consistent pattern)
+        finalText = finalDataToUse.urdu === 'نگ' ? 'َنگ' : (finalDataToUse.urdu === 'ن' ? 'َن' : finalDataToUse.urduTone1 || finalDataToUse.urdu);
+        // Note: The logic above simplifies to specifically handling en/eng for these initials, 
+        // relying on the manual check. Standardizing to use the hardcoded short vowel forms for robusteness:
+        finalText = finalChar === 'en' ? 'َن' : 'َنگ';
+      } else if ((initialChar === 'd' || initialChar === 't' || initialChar === 'n' || initialChar === 'l' || initialChar === 'g' || initialChar === 'k' || initialChar === 'h' || initialChar === 'z' || initialChar === 'c' || initialChar === 's' || initialChar === 'zh' || initialChar === 'ch' || initialChar === 'sh' || initialChar === 'r') && finalChar === 'ou') {
+        // Exception: D/T/N/L/G/K/H/Z/C/S/Zh/Ch/Sh/R initial with ou uses Zabar+Wao
+        initialText = iData.urduTone1 || iData.urdu || '';
+        finalText = 'َو';
+      } else if ((initialChar === 'n' || initialChar === 'l') && (finalChar === 'ue' || finalChar === 'üe')) {
+        // Exception: N/L initial with ue/üe uses special mapping (nüē/lüē -> نِیُوَ / لِیُوَ)
+        initialText = iData.urduTone1 || iData.urdu || '';
+        finalText = 'ِیُوَ';
+      } else {
+        initialText = iData.urduTone1 || iData.urdu || '';
+        finalText = fData.urduTone1 || fData.urdu || '';
+      }
+    } else if (tone === 2 || tone === '2') {
+      initialText = iData.urduTone2 || iData.urdu || '';
+      finalText = fData.urduTone2 || fData.urdu || '';
+    } else if (tone === 3 || tone === '3') {
+      initialText = iData.urduTone3 || iData.urdu || '';
+      finalText = fData.urduTone3 || fData.urdu || '';
+    } else if (isTone4) {
+      initialText = iData.urduTone4 || iData.urdu || '';
+      finalText = fData.urduTone4 || fData.urdu || '';
+    } else {
+      initialText = iData.urdu || '';
+      finalText = fData.urdu || '';
+    }
+    initialText = iData[lang] || '';
+    finalText = fData[lang] || '';
+  }
+
+  // Floating Diacritic Fix for Separated Mode (Chart UI)
+  if (displayMode === 'separated') {
+    // Check if final text starts with a diacritic (Zabar, Zer, Pesh, etc.)
+    // Common Urdu diacritics: \u064B-\u0652 (Fathatan, Dammatan, Kasratan, Fatha/Zabar, Damma/Pesh, Kasra/Zer, Shadda, Sukun)
+    const diacriticRegex = /^[\u064B-\u0652]/;
+
+    // If it starts with a diacritic, prepend a Tatweel (ـ)
+    let safeFinalText = finalText;
+    if (diacriticRegex.test(finalText)) {
+      safeFinalText = 'ـ' + finalText;
+    }
+
+    return `${initialText} + ${safeFinalText}`;
+  }
+
+  // Apical Vowel Override for Z, C, S, Zh, Ch, Sh, R with final 'i' (Buzzy i)
+  // This logic is applied AFTER tone logic as a final override for this specific combination
+  if (lang === 'urdu' && (initialChar === 'z' || initialChar === 'c' || initialChar === 's' || initialChar === 'zh' || initialChar === 'ch' || initialChar === 'sh' || initialChar === 'r') && finalChar === 'i') {
+    // Re-assign initialText based on tone logic preserved above (e.g. Tone 4 uses tashdid form)
+    // Override final text to Zer (ِ) or Zer+Hamza for Tone 3
+    if (tone === 3 || tone === '3') {
+      finalText = 'ِء';
+    } else {
+      finalText = 'ِ';
+    }
+    // Note: Initial text already handles Tashdid for Tone 4 via the standard block above if configured in initial data
+  }
 
   if (displayMode === 'separated') {
     return `${initialText} + ${finalText}`;

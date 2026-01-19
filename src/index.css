@@ -209,14 +209,15 @@ main {
 .cell {
   background: rgba(255, 255, 255, 0.4);
   border: 1px solid var(--cell-border);
-  height: var(--cell-size);
+  min-height: var(--cell-size);
+  height: auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   cursor: pointer;
   transition: all 0.15s ease;
-  padding: 2px;
+  padding: 4px 2px;
   position: relative;
   /* For z-index context */
 }
@@ -1085,6 +1086,19 @@ main.lang-urdu {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.tone-urdu {
+  font-family: 'IBM Plex Sans Arabic', 'Noto Nastaliq Urdu', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--primary);
+  direction: rtl;
+  line-height: 1.3;
+}
+
+.tone-btn.playing .tone-urdu {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .play-btn {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { pinyin } from 'pinyin-pro';
+import { pinyin } from 'pinyin-pro'; // https://github.com/zh-pinyin/pinyin-pro
 import { pronunciationNotations } from '../pinyinData';
+
+
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -14,7 +16,7 @@ const PracticeSheetGenerator = () => {
     const [boxSize, setBoxSize] = useState(48);
     const [boxesPerRow, setBoxesPerRow] = useState(24);
     const [fadeCount, setFadeCount] = useState(12);
-    const [sentenceRows, setSentenceRows] = useState(3); // Rows per character in sentence mode
+    const [sentenceRows, setSentenceRows] = useState(5); // Rows per character in sentence mode
     const [showPinyin, setShowPinyin] = useState(true);
     const [showUrdu, setShowUrdu] = useState(true);
     const [showTranslation, setShowTranslation] = useState(false);
@@ -22,6 +24,7 @@ const PracticeSheetGenerator = () => {
     const [strokeAnimChar, setStrokeAnimChar] = useState(null);
     const [studentName, setStudentName] = useState('');
     const [sheetDate, setSheetDate] = useState(new Date().toISOString().slice(0, 10));
+    const [playingState, setPlayingState] = useState({ sentenceIdx: -1, charIdx: -1 });
     const strokeAnimRef = useRef(null);
 
     // ========== DERIVED DATA ==========
@@ -40,70 +43,70 @@ const PracticeSheetGenerator = () => {
     };
 
     // Get Urdu pronunciation from pinyin
+    // Helper: Pinyin to Urdu (Dictionary Based)
+    // --- Helper: Get Urdu Transliteration (Dictionary-Based Lookup) ---
+    // --- Helper: Get Urdu Transliteration (Imported from pinyinData.js) ---
     const getUrdu = (char) => {
-        try {
-            const py = pinyin(char, { toneType: 'none', type: 'array' })[0] || '';
-            if (!py) return '';
+        const pinyinText = getPinyin(char); // e.g. "zhōng"
 
-            // Standalone syllables mapping (w/y glides -> actual finals)
-            // These are syllables that appear standalone without a consonant initial
-            const standaloneToFinal = {
-                // w- glides (from u finals)
-                'wo': 'uo',    // 我 wǒ
-                'wu': 'u',     // 五 wǔ
-                'wa': 'ua',    // 哇 wā
-                'wai': 'uai',  // 外 wài
-                'wan': 'uan',  // 万 wàn
-                'wang': 'uang', // 王 wáng
-                'wei': 'uei',  // 为 wèi
-                'wen': 'uen',  // 问 wèn
-                'weng': 'ueng', // 翁 wēng
-                // y- glides (from i/ü finals)
-                'yi': 'i',     // 一 yī
-                'ya': 'ia',    // 呀 ya
-                'yan': 'ian',  // 眼 yǎn
-                'yang': 'iang', // 样 yàng
-                'yao': 'iao',  // 要 yào
-                'ye': 'ie',    // 也 yě
-                'yin': 'in',   // 音 yīn
-                'ying': 'ing', // 英 yīng
-                'yong': 'iong', // 用 yòng
-                'you': 'iou',  // 有 yǒu
-                'yu': 'ü',     // 鱼 yú  
-                'yuan': 'üan', // 元 yuán
-                'yue': 'üe',   // 月 yuè
-                'yun': 'ün',   // 云 yún
-            };
+        // 1. Clean Pinyin (remove tones)
+        const cleanPinyin = pinyinText
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+            .replace(/v/g, 'ü') // Normalize v to ü
+            .toLowerCase();
 
-            // Check if it's a standalone syllable first
-            if (standaloneToFinal[py]) {
-                const finalUrdu = pronunciationNotations.finals[standaloneToFinal[py]]?.urdu;
-                if (finalUrdu) return finalUrdu;
+        // 2. Special Whole-Syllable Overrides (Exceptions to standard rules)
+        const specialCases = {
+            'shi': 'شر',  // Special retroflex case
+            'zhi': 'ج', // Special retroflex case
+            'chi': 'چھ', // Special retroflex case
+            'ri': 'ر', // Special retroflex case
+            'zi': 'ز',
+            'ci': 'تس',
+            'si': 'س',
+            'yi': 'ی',
+            'wu': 'و',
+            'yu': 'یو',
+            'ye': 'یے',
+            'yue': 'یوے',
+            'yuan': 'یوان',
+            'yun': 'یون',
+            'ying': 'ینگ'
+        };
+
+        if (specialCases[cleanPinyin]) return specialCases[cleanPinyin];
+
+        // 3. Parsing Logic (Initial + Final) using Imported Data
+        let initial = '';
+        let final = cleanPinyin;
+
+        // Sort initials longest first (zh/ch/sh first) to avoid partial matches
+        // Using imported pronunciationNotations from pinyinData.js
+        const sortedInitials = Object.keys(pronunciationNotations.initials).sort((a, b) => b.length - a.length);
+
+        for (const init of sortedInitials) {
+            if (cleanPinyin.startsWith(init)) {
+                initial = init;
+                final = cleanPinyin.slice(initial.length);
+                break;
             }
-
-            // Known initials in order of length (longest first to match zh before z)
-            const initials = ['zh', 'ch', 'sh', 'b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'z', 'c', 's', 'r'];
-
-            let initial = '';
-            let final = py;
-
-            for (const init of initials) {
-                if (py.startsWith(init)) {
-                    initial = init;
-                    final = py.slice(init.length);
-                    break;
-                }
-            }
-
-            // Handle standalone vowels (no initial)
-            const initialUrdu = initial && pronunciationNotations.initials[initial]?.urdu || '';
-            const finalUrdu = pronunciationNotations.finals[final]?.urdu || final;
-
-            return initialUrdu + finalUrdu;
-        } catch {
-            return '';
         }
+
+        // 4. Transform to Urdu using Data Map reference
+        const initialUrdu = pronunciationNotations.initials[initial]?.urdu || '';
+        const finalUrdu = pronunciationNotations.finals[final]?.urdu || '';
+
+        // Fallback: If no Urdu found, return cleanPinyin (or a placeholder) so it's not invisible
+        if (!initialUrdu && !finalUrdu) {
+            // Check if it's a known non-mapping scenario or just missing data
+            // Return Pinyin as fallback so user sees *something*
+            return `[${cleanPinyin}]`;
+        }
+
+        return initialUrdu + finalUrdu;
     };
+
+
 
     // Common character dictionary for translations
     const charDictionary = {
@@ -532,6 +535,60 @@ const PracticeSheetGenerator = () => {
         } catch (e) {
             console.error("Audio error", e);
         }
+    };
+
+    // Play full sentence audio sequentially
+    // Play full sentence audio sequentially
+    const playSentence = async (text, idx) => {
+        const chars = text.split('').filter(c => /[\u4e00-\u9fff]/.test(c));
+
+        // Reset state initially
+        setPlayingState({ sentenceIdx: idx, charIdx: -1 });
+
+        for (let i = 0; i < chars.length; i++) {
+            const char = chars[i];
+
+            // Update highlight
+            setPlayingState(prev => ({ ...prev, charIdx: i }));
+
+            await new Promise((resolve) => {
+                try {
+                    const base = pinyin(char, { toneType: 'none', type: 'array' })[0];
+                    const tonePinyin = pinyin(char, { toneType: 'num', type: 'array' })[0];
+
+                    if (base && tonePinyin) {
+                        const toneMatch = tonePinyin.match(/(\d)$/);
+                        const tone = toneMatch ? parseInt(toneMatch[1]) : null;
+
+                        // Validate tone is 1-4
+                        if (tone && tone >= 1 && tone <= 4) {
+                            const safeBase = base.replace(/ü/g, 'v');
+                            const audio = new Audio(`/PinyinSound/${safeBase}${tone}.mp3`);
+
+                            audio.onended = resolve;
+                            audio.onerror = () => {
+                                console.warn(`Audio failed for ${char}`);
+                                resolve(); // Skip on error
+                            };
+
+                            audio.play().catch(e => {
+                                console.warn("Audio play failed", e);
+                                resolve();
+                            });
+                        } else {
+                            setTimeout(resolve, 300); // Pause for neutral/missing tone
+                        }
+                    } else {
+                        setTimeout(resolve, 300);
+                    }
+                } catch (e) {
+                    console.error("Sentence audio error", e);
+                    resolve();
+                }
+            });
+        }
+        // Reset after completion
+        setPlayingState({ sentenceIdx: -1, charIdx: -1 });
     };
 
     // ========== COMPONENTS ==========
@@ -1232,85 +1289,99 @@ const PracticeSheetGenerator = () => {
                     {/* Header checks for preview */}
                     <SheetHeaderPreview />
 
-                    {
-                        characters.length > 0 ? (
-                            mode === 'word' ? (
-                                characters.map((char, idx) => (
-                                    <WordRow key={idx} char={char} pinyinText={getPinyin(char)} />
-                                ))
-                            ) : (
-                                <div className="sentence-container">
-                                    {sentenceChips.map((sentence, sentenceIdx) => {
-                                        const chars = sentence.split('').filter(c => /[\u4e00-\u9fff]/.test(c));
+                    {characters.length > 0 ? (
+                        mode === 'word' ? (
+                            characters.map((char, idx) => (
+                                <WordRow key={idx} char={char} pinyinText={getPinyin(char)} />
+                            ))
+                        ) : (
+                            <div className="sentence-container">
+                                {sentenceChips.map((sentence, sentenceIdx) => {
+                                    const chars = sentence.split('').filter(c => /[\u4e00-\u9fff]/.test(c));
 
-                                        return (
-                                            <div key={sentenceIdx} className="sentence-block">
-                                                {/* Sentence Header */}
-                                                <div className="sentence-header-compact">
-                                                    <div className="sentence-meta">
-                                                        <span className="sentence-num">{sentenceIdx + 1}</span>
-                                                        {showTranslation && (
-                                                            <span className="sentence-meaning">
-                                                                {chars.map(c => getTranslation(c)).filter(t => t).join(' ')}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                    return (
+                                        <div key={sentenceIdx} className="sentence-block">
+                                            {/* Sentence Play Button */}
+                                            <button
+                                                className="play-animation-btn"
+                                                onClick={() => playSentence(sentence, sentenceIdx)}
+                                                title="Play Sentence"
+                                            >
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M8 5v14l11-7z" />
+                                                </svg>
+                                            </button>
 
-                                                    <div className="chars-flow">
-                                                        {chars.map((char, idx) => (
-                                                            <div key={idx} className="char-stack">
-                                                                {showPinyin && <span className="stack-pinyin">{getPinyin(char)}</span>}
-                                                                <span className="stack-hanzi">{char}</span>
-                                                                {showUrdu && <span className="stack-urdu">{getUrdu(char)}</span>}
-                                                            </div>
-                                                        ))}
-                                                    </div>
+                                            {/* Sentence Header */}
+                                            <div className="sentence-header-compact">
+                                                <div className="sentence-meta">
+                                                    {showTranslation && (
+                                                        <span className="sentence-meaning">
+                                                            {chars.map(c => getTranslation(c)).filter(t => t).join(' ')}
+                                                        </span>
+                                                    )}
                                                 </div>
 
-                                                {/* Practice Rows */}
-                                                <div className="sentence-practice-rows">
-                                                    {/* First row - Animated stroke order with play button */}
-                                                    <div className="animated-row-container">
-                                                        <AnimatedSentenceRow chars={chars} type={gridType} size={boxSize} />
-                                                    </div>
-                                                    {/* Static reference row for PDF export (hidden by default) */}
-                                                    <div className="sentence-row static-reference-row" style={{ display: 'none' }}>
-                                                        {chars.map((char, idx) => (
-                                                            <GridBox key={idx} char={char} type={gridType} size={boxSize} />
-                                                        ))}
-                                                    </div>
-                                                    {/* Faded tracing rows based on fadeCount */}
-                                                    {showTracing && Array.from({ length: fadeCount }).map((_, fadeIdx) => {
-                                                        const fadeOpacity = 0.5 - (fadeIdx * (0.4 / Math.max(1, fadeCount)));
-                                                        return (
-                                                            <div key={`fade-${fadeIdx}`} className="sentence-row tracing-row">
-                                                                {chars.map((char, idx) => (
-                                                                    <GridBox key={idx} char={char} type={gridType} opacity={Math.max(0.1, fadeOpacity)} size={boxSize} />
-                                                                ))}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {/* Blank rows = total rows - shadow rows */}
-                                                    {Array.from({ length: Math.max(0, sentenceRows - fadeCount) }).map((_, rowIdx) => (
-                                                        <div key={rowIdx} className="sentence-row blank-row">
-                                                            {chars.map((char, idx) => (
-                                                                <GridBox key={idx} type={gridType} size={boxSize} />
-                                                            ))}
+                                                <div className="chars-flow">
+                                                    {chars.map((char, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            className={`char-stack ${playingState.sentenceIdx === sentenceIdx && playingState.charIdx === idx ? 'char-pointing' : ''}`}
+                                                            style={{ width: boxSize }}
+                                                        >
+                                                            {showPinyin && <span className="stack-pinyin">{getPinyin(char)}</span>}
+                                                            <span className="stack-hanzi">{char}</span>
+                                                            {showUrdu && <span className="stack-urdu">{getUrdu(char)}</span>}
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            )
-                        ) : (
-                            <div className="empty-state">
-                                <span className="empty-icon">📝</span>
-                                <p>Type Chinese characters above to generate your practice sheet</p>
+
+                                            {/* Practice Rows */}
+                                            <div className="sentence-practice-rows">
+                                                {/* First row - Animated stroke order */}
+                                                <div className="animated-row-container">
+                                                    <AnimatedSentenceRow chars={chars} type={gridType} size={boxSize} />
+                                                </div>
+                                                {/* Static reference row for PDF export (hidden by default) */}
+                                                <div className="sentence-row static-reference-row" style={{ display: 'none' }}>
+                                                    {chars.map((char, idx) => (
+                                                        <div key={idx} className="grid-box-wrapper">
+                                                            <GridBox char={char} type={gridType} size={boxSize} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {/* Faded tracing rows */}
+                                                {showTracing && Array.from({ length: Math.min(fadeCount, sentenceRows) }).map((_, fadeIdx) => {
+                                                    const fadeOpacity = 0.5 - (fadeIdx * (0.4 / Math.max(1, Math.min(fadeCount, sentenceRows))));
+                                                    return (
+                                                        <div key={`fade-${fadeIdx}`} className="sentence-row tracing-row">
+                                                            {chars.map((char, idx) => (
+                                                                <GridBox key={idx} char={char} type={gridType} opacity={Math.max(0.1, fadeOpacity)} size={boxSize} />
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })}
+                                                {/* Blank rows */}
+                                                {Array.from({ length: Math.max(0, sentenceRows - fadeCount) }).map((_, rowIdx) => (
+                                                    <div key={rowIdx} className="sentence-row blank-row">
+                                                        {chars.map((char, idx) => (
+                                                            <GridBox key={idx} type={gridType} size={boxSize} />
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )
-                    }
+                    ) : (
+                        <div className="empty-state">
+                            <span className="empty-icon">📝</span>
+                            <p>Type Chinese characters above to generate your practice sheet</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1377,7 +1448,8 @@ const PracticeSheetGenerator = () => {
                 .pdf-mode .static-word-box-reference {
                      display: block !important;
                 }
-                .pdf-mode .modal-play-btn {
+                .pdf-mode .modal-play-btn,
+                .pdf-mode .play-animation-btn {
                     display: none !important;
                 }
                 .pdf-mode .sheet-header-preview {
@@ -2033,13 +2105,15 @@ const PracticeSheetGenerator = () => {
                 .sentence-block {
                     margin: 0;
                     padding: 12px;
+                    padding-top: 44px; /* Space for corner tab button */
                     break-inside: avoid;
-                    width: fit-content; /* Let block size to content */
-                    min-width: 280px;
+                    width: fit-content;
                     border: 1px solid #e2e8f0;
-                    border-radius: 8px;
+                    border-radius: 12px; /* Slightly larger radius to match button curve */
                     box-sizing: border-box;
                     background: #fff;
+                    position: relative;
+                    overflow: hidden; /* Clip button to border-radius */
                 }
 
                 .sentence-header {
@@ -2055,6 +2129,64 @@ const PracticeSheetGenerator = () => {
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
                     margin-bottom: 8px;
+                }
+
+                /* Play button - Integrated Corner Tab */
+                .play-animation-btn {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                    border: none;
+                    width: 44px;
+                    height: 44px;
+                    /* Corner tab: only bottom-right is rounded */
+                    border-radius: 0 0 22px 0; 
+                    color: white;
+                    font-size: 18px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.25s ease;
+                    z-index: 10;
+                    padding: 0;
+                    padding-right: 8px;
+                    padding-bottom: 8px;
+                    margin: 0;
+                    box-shadow: none; /* Clean look, relies on gradient */
+                }
+
+                .play-animation-btn:hover {
+                    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+                    transform: scale(1.08);
+                }
+                
+                .play-animation-btn:active {
+                    transform: scale(0.95);
+                }
+
+                /* Highlight animation - All three scripts */
+                .char-pointing .stack-hanzi {
+                    color: #d97706;
+                    transform: scale(1.15);
+                    transition: all 0.2s ease;
+                }
+                .char-pointing .stack-pinyin {
+                    color: #d97706;
+                    font-weight: 800;
+                    transform: scale(1.1);
+                }
+                .char-pointing .stack-urdu {
+                    color: #d97706;
+                    transform: scale(1.15);
+                    text-shadow: 0 0 1px rgba(217, 119, 6, 0.3);
+                }
+
+
+                .char-pointing .stack-pinyin {
+                    color: #d97706;
+                    font-weight: 800;
                 }
 
                 .sentence-text {
@@ -2136,13 +2268,16 @@ const PracticeSheetGenerator = () => {
                     margin-bottom: 4px;
                     padding-bottom: 4px;
                     border-bottom: 2px solid var(--primary); /* Strong yellow/orange underline */
+                    position: relative;
                 }
 
                 .sentence-meta {
                     display: flex;
-                    align-items: center; /* Center align */
+                    align-items: center;
                     gap: 12px;
                     margin-bottom: 8px;
+                    min-height: 24px;
+                    padding-left: 36px; /* Space for the play button */
                 }
 
                 .sentence-num {
@@ -2164,7 +2299,7 @@ const PracticeSheetGenerator = () => {
                 .chars-flow {
                     display: flex;
                     flex-wrap: nowrap; /* Keep all chars on one line */
-                    gap: 8px;
+                    gap: 0; /* Align with grid boxes */
                     align-items: flex-end;
                     padding: 4px 0;
                 }
@@ -2173,33 +2308,38 @@ const PracticeSheetGenerator = () => {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
-                    margin-right: 2px;
-                    min-width: 2.8em;
+                    margin-right: 0;
+                    min-width: auto;
                     position: relative;
                 }
                 
-                /* Stack Item Spacing */
+                /* Stack Item Spacing & Harmony */
                 .stack-pinyin {
-                    font-size: 0.85rem;
+                    font-size: 0.9rem; /* Slightly larger */
                     color: #dc2626;
                     font-family: 'Inter', sans-serif;
                     font-weight: 600;
-                    margin-bottom: 2px;
+                    margin-bottom: 4px; /* Space below Pinyin */
+                    height: 1.2em; /* Fixed height alignment */
+                    display: flex;
+                    align-items: flex-end;
                 }
 
                 .stack-hanzi {
-                    font-family: 'KaiTi', 'Kaiti SC', serif;
-                    font-size: 2.2rem;
-                    color: #18181b;
-                    line-height: 1;
-                    margin: 2px 0;
+                    font-size: 2rem; /* Reduced from 2.2rem */
+                    font-family: 'KaiTi', 'Kaiti SC', 'STKaiti', serif;
+                    color: #1e3a5f;
+                    line-height: 1.1;
+                    font-weight: 500;
+                    margin-bottom: 6px; /* Space between Hanzi and Urdu */
                 }
 
                 .stack-urdu {
-                    font-size: 1rem;
-                    color: #1e3a5f; /* Deep Blue for Urdu */
+                    font-size: 1.3rem; /* Reduced from 1.4rem */
+                    color: #1e40af; /* Deeper blue for contrast */
                     font-family: 'Noto Nastaliq Urdu', serif;
-                    margin-top: 2px;
+                    margin-top: 0;
+                    line-height: 1.4;
                 }
 
                 /* Character Breakdown Table */
@@ -2272,33 +2412,7 @@ const PracticeSheetGenerator = () => {
                     gap: 8px;
                 }
 
-                .play-animation-btn {
-                    width: 36px;
-                    height: 36px;
-                    border: none;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                    color: white;
-                    font-size: 14px;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
-                    transition: all 0.2s;
-                    flex-shrink: 0;
-                    margin-top: 8px;
-                }
-
-                .play-animation-btn:hover:not(:disabled) {
-                    transform: scale(1.1);
-                    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.5);
-                }
-
-                .play-animation-btn:disabled {
-                    opacity: 0.7;
-                    cursor: not-allowed;
-                }
+                /* Duplicate play-animation-btn removed - using corner tab style from above */
 
                 .animated-box.animating {
                     /* Yellow background is sufficient indicator */
