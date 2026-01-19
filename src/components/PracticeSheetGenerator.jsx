@@ -1062,20 +1062,18 @@ const PracticeSheetGenerator = () => {
                 /* ===== SENTENCE BLOCK (NANO STYLE) ===== */
                 .sentence-container {
                     display: flex;
-                    flex-wrap: nowrap; /* Keep all on same row */
-                    gap: 12px;
+                    flex-wrap: wrap; /* Wrap to next line when needed */
+                    flex-direction: row; /* Horizontal layout */
+                    gap: 16px;
                     align-items: flex-start;
-                    justify-content: flex-start;
-                    overflow-x: auto; /* Allow scroll if needed */
                 }
 
                 .sentence-block {
                     margin: 0;
                     padding: 12px;
                     break-inside: avoid;
-                    flex: 0 1 calc(33.33% - 12px); /* 3 per row with gap */
-                    min-width: 200px;
-                    max-width: 100%;
+                    width: fit-content; /* Let block size to content */
+                    min-width: 280px;
                     border: 1px solid #e2e8f0;
                     border-radius: 8px;
                     box-sizing: border-box;
@@ -1311,15 +1309,14 @@ const PracticeSheetGenerator = () => {
                     flex-direction: column;
                     gap: 0;
                     background: #fafafa;
-                    max-width: 100%;
-                    overflow-x: hidden;
+                    width: fit-content; /* Allow container to expand with content */
                 }
 
                 .sentence-row {
                     display: flex;
                     gap: 0;
                     flex-wrap: nowrap; /* Keep all boxes on one line */
-                    max-width: 100%;
+                    width: fit-content; /* Allow row to expand with content */
                 }
                 
                 .grid-box {
