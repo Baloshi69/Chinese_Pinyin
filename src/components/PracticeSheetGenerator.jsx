@@ -11,9 +11,9 @@ const PracticeSheetGenerator = () => {
     const [sentenceChips, setSentenceChips] = useState(['我爱中国']); // Sentence mode chips
     const [mode, setMode] = useState('word'); // 'word' | 'sentence'
     const [gridType, setGridType] = useState('mi'); // 'tian' | 'mi' | 'hui' | 'jing' | 'square'
-    const [boxSize, setBoxSize] = useState(70);
-    const [boxesPerRow, setBoxesPerRow] = useState(10);
-    const [fadeCount, setFadeCount] = useState(3);
+    const [boxSize, setBoxSize] = useState(48);
+    const [boxesPerRow, setBoxesPerRow] = useState(24);
+    const [fadeCount, setFadeCount] = useState(12);
     const [sentenceRows, setSentenceRows] = useState(3); // Rows per character in sentence mode
     const [showPinyin, setShowPinyin] = useState(true);
     const [showUrdu, setShowUrdu] = useState(true);
@@ -497,6 +497,42 @@ const PracticeSheetGenerator = () => {
     };
 
     // ========== WORD ROW COMPONENT ==========
+    // Play audio for a character
+    const playAudio = (char) => {
+        try {
+            // Get base pinyin (e.g. "ni", "nv", "ju") without tone
+            // pinyin-pro 'none' type returns 'lü' for 绿, 'ju' for 聚
+            const base = pinyin(char, { toneType: 'none', type: 'array' })[0];
+
+            // Get pinyin with tone number (e.g. "ni3", "lv4")
+            const tonePinyin = pinyin(char, { toneType: 'num', type: 'array' })[0];
+
+            if (base && tonePinyin) {
+                // Extract tone number (1-4). If neutral (5/0) or missing, we can't play it as we only have 1-4 files.
+                const toneMatch = tonePinyin.match(/(\d)$/);
+                const tone = toneMatch ? parseInt(toneMatch[1]) : null;
+
+                // Validate tone is 1-4
+                if (tone && tone >= 1 && tone <= 4) {
+                    // Handle ü -> v mapping for file system (matches PinyinChart logic)
+                    // pinyin-pro returns 'ü' for l/n (lü, nü) but 'u' for j/q/x/y (ju, qu, xu, yu)
+                    // Our files use 'v' for ü (lv1.mp3, nv3.mp3) and 'u' for others (ju1.mp3)
+                    const safeBase = base.replace(/ü/g, 'v');
+
+                    const audio = new Audio(`/PinyinSound/${safeBase}${tone}.mp3`);
+                    audio.play().catch(e => {
+                        console.warn(`Audio play failed for ${safeBase}${tone}:`, e);
+                    });
+                } else {
+                    console.log(`No audio available for ${char} (Tone ${tone || 'N/A'})`);
+                }
+            }
+        } catch (e) {
+            console.error("Audio error", e);
+        }
+    };
+
+    // ========== COMPONENTS ==========
     const WordRow = ({ char, pinyinText }) => {
         const totalBoxes = boxesPerRow;
         const blankBoxes = Math.max(0, totalBoxes - 1 - fadeCount);
@@ -505,11 +541,32 @@ const PracticeSheetGenerator = () => {
             <div className="word-row">
                 {/* Character Label with Pinyin + Urdu + Translation */}
                 <div className="word-label" style={{ minWidth: boxSize + 30 }}>
-                    {showPinyin && <div className="label-pinyin">{pinyinText}</div>}
-                    {showUrdu && <div className="label-urdu">{getUrdu(char)}</div>}
-                    {showTranslation && getTranslation(char) && (
-                        <div className="label-translation">{getTranslation(char)}</div>
-                    )}
+                    <div className="label-content">
+                        {showPinyin && <div className="label-pinyin">{pinyinText}</div>}
+                        {showUrdu && <div className="label-urdu">{getUrdu(char)}</div>}
+                        {showTranslation && getTranslation(char) && (
+                            <div className="label-translation">{getTranslation(char)}</div>
+                        )}
+                    </div>
+                    {/* Stroke Order Button (Top-Left) */}
+                    <button
+                        className="stroke-btn"
+                        onClick={() => setStrokeAnimChar(char)}
+                        title="View Stroke Order"
+                    >
+                        笔
+                    </button>
+                    {/* Play Button (Bottom-Left) */}
+                    <button
+                        className="play-btn"
+                        onClick={() => playAudio(char)}
+                        title="Play"
+                    >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                    </button>
+                    {/* Stroke animation button */}
                 </div>
 
                 {/* Character Boxes */}
@@ -537,20 +594,13 @@ const PracticeSheetGenerator = () => {
                         <GridBox key={`blank-${i}`} type={gridType} size={boxSize} />
                     ))}
                 </div>
-
-                {/* Stroke Order Button */}
-                <button
-                    className="stroke-btn"
-                    onClick={() => setStrokeAnimChar(char)}
-                    title="View Stroke Order"
-                >
-                    笔
-                </button>
             </div>
         );
     };
 
-    // ========== SENTENCE MODE COMPONENT ==========
+    // ... Sentence grid ...
+
+
     const SentenceGrid = () => {
         return (
             <div className="sentence-container">
@@ -720,29 +770,91 @@ const PracticeSheetGenerator = () => {
 
                     {/* Box Size */}
                     <div className="setting-group">
-                        <label>Size: {boxSize}px</label>
-                        <input type="range" min="40" max="100" value={boxSize} onChange={(e) => setBoxSize(Number(e.target.value))} />
+                        <label>Size</label>
+                        <input
+                            type="number"
+                            className="number-input"
+                            min="40"
+                            max="100"
+                            value={boxSize}
+                            onChange={(e) => setBoxSize(Math.min(100, Math.max(40, Number(e.target.value) || 40)))}
+                        />
+                        <span className="unit">px</span>
                     </div>
 
-                    {/* Boxes Number Settings - Mode Conditional */}
+                    {/* Mode-specific settings */}
                     {mode === 'word' && (
-                        <div className="setting-group">
-                            <label>Boxes/Row: {boxesPerRow}</label>
-                            <input type="range" min="5" max="15" value={boxesPerRow} onChange={(e) => setBoxesPerRow(Number(e.target.value))} />
-                        </div>
+                        <>
+                            <div className="setting-group">
+                                <label>Boxes</label>
+                                <input
+                                    type="number"
+                                    className="number-input"
+                                    min="2"
+                                    max="55"
+                                    value={boxesPerRow}
+                                    onChange={(e) => {
+                                        const newVal = Math.min(55, Math.max(2, Number(e.target.value) || 5));
+                                        setBoxesPerRow(newVal);
+                                        // Adjust fade if needed (boxes = 1 animated + fadeCount + blanks, so max fade = boxes - 1)
+                                        if (fadeCount > newVal - 1) {
+                                            setFadeCount(Math.max(0, newVal - 1));
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <div className="setting-group">
+                                <label>Shadows</label>
+                                <input
+                                    type="number"
+                                    className={`number-input ${fadeCount >= boxesPerRow - 1 ? 'at-limit' : ''}`}
+                                    min="0"
+                                    max={boxesPerRow - 1}
+                                    value={fadeCount}
+                                    onChange={(e) => setFadeCount(Math.min(boxesPerRow - 1, Math.max(0, Number(e.target.value) || 0)))}
+                                />
+                                {fadeCount >= boxesPerRow - 1 && (
+                                    <span className="limit-hint" title="Increase boxes first">⚠️</span>
+                                )}
+                            </div>
+                        </>
                     )}
 
-                    {/* Fade Count */}
-                    <div className="setting-group">
-                        <label>Fade: {fadeCount}</label>
-                        <input type="range" min="0" max="5" value={fadeCount} onChange={(e) => setFadeCount(Number(e.target.value))} />
-                    </div>
-
                     {mode === 'sentence' && (
-                        <div className="setting-group">
-                            <label>Rows/Char: {sentenceRows}</label>
-                            <input type="range" min="1" max="6" value={sentenceRows} onChange={(e) => setSentenceRows(Number(e.target.value))} />
-                        </div>
+                        <>
+                            <div className="setting-group">
+                                <label>Rows</label>
+                                <input
+                                    type="number"
+                                    className="number-input"
+                                    min="1"
+                                    max="10"
+                                    value={sentenceRows}
+                                    onChange={(e) => {
+                                        const newVal = Math.min(10, Math.max(1, Number(e.target.value) || 1));
+                                        setSentenceRows(newVal);
+                                        // Adjust fade if needed (rows = 1 animated + fadeCount + blank rows)
+                                        if (fadeCount > newVal) {
+                                            setFadeCount(Math.max(0, newVal));
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <div className="setting-group">
+                                <label>Shadows</label>
+                                <input
+                                    type="number"
+                                    className={`number-input ${fadeCount >= sentenceRows ? 'at-limit' : ''}`}
+                                    min="0"
+                                    max={sentenceRows}
+                                    value={fadeCount}
+                                    onChange={(e) => setFadeCount(Math.min(sentenceRows, Math.max(0, Number(e.target.value) || 0)))}
+                                />
+                                {fadeCount >= sentenceRows && (
+                                    <span className="limit-hint" title="Increase rows first">⚠️</span>
+                                )}
+                            </div>
+                        </>
                     )}
 
                     {/* Toggles */}
@@ -844,7 +956,7 @@ const PracticeSheetGenerator = () => {
                                                 <AnimatedSentenceRow chars={chars} type={gridType} size={boxSize} />
                                                 {/* Faded tracing rows based on fadeCount */}
                                                 {showTracing && Array.from({ length: fadeCount }).map((_, fadeIdx) => {
-                                                    const fadeOpacity = 0.5 - (fadeIdx * (0.4 / fadeCount));
+                                                    const fadeOpacity = 0.5 - (fadeIdx * (0.4 / Math.max(1, fadeCount)));
                                                     return (
                                                         <div key={`fade-${fadeIdx}`} className="sentence-row tracing-row">
                                                             {chars.map((char, idx) => (
@@ -853,7 +965,8 @@ const PracticeSheetGenerator = () => {
                                                         </div>
                                                     );
                                                 })}
-                                                {Array.from({ length: sentenceRows }).map((_, rowIdx) => (
+                                                {/* Blank rows = total rows - shadow rows */}
+                                                {Array.from({ length: Math.max(0, sentenceRows - fadeCount) }).map((_, rowIdx) => (
                                                     <div key={rowIdx} className="sentence-row blank-row">
                                                         {chars.map((char, idx) => (
                                                             <GridBox key={idx} type={gridType} size={boxSize} />
@@ -880,9 +993,28 @@ const PracticeSheetGenerator = () => {
                 <div className="stroke-modal-overlay" onClick={closeStrokeAnim}>
                     <div className="stroke-modal" onClick={(e) => e.stopPropagation()}>
                         <button className="modal-close" onClick={closeStrokeAnim}>×</button>
-                        <h3>Stroke Order: {strokeAnimChar}</h3>
+
+                        <div className="modal-header">
+                            <h3>Stroke Order</h3>
+                        </div>
+
+                        {/* Play Button */}
+                        <button
+                            className="modal-play-btn"
+                            onClick={() => playAudio(strokeAnimChar)}
+                            title="Play Audio"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </button>
+
                         <div ref={strokeAnimRef} className="stroke-stage"></div>
-                        <p className="stroke-pinyin">{getPinyin(strokeAnimChar)}</p>
+
+                        <div className="stroke-info">
+                            <p className="stroke-pinyin">{getPinyin(strokeAnimChar)}</p>
+                            <p className="stroke-urdu">{getUrdu(strokeAnimChar)}</p>
+                        </div>
                     </div>
                 </div>
             )}
@@ -1139,6 +1271,18 @@ const PracticeSheetGenerator = () => {
                     padding: 0;
                 }
 
+                .grid-box {
+                    background: white;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    position: relative;
+                    border: 1px solid #e2e8f0; /* Lighter border */
+                    box-sizing: border-box;
+                    border-radius: 4px; /* Little radius */
+                    transition: all 0.2s ease;
+                }
+
                 .chip-remove:hover {
                     color: #ef4444;
                     background: #fee2e2;
@@ -1166,16 +1310,58 @@ const PracticeSheetGenerator = () => {
 
                 .setting-group {
                     display: flex;
-                    flex-direction: column;
-                    gap: 6px;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 8px;
                 }
 
                 .setting-group label {
-                    font-size: 0.7rem;
+                    font-size: 0.75rem;
                     font-weight: 600;
                     color: #64748b;
                     text-transform: uppercase;
                     margin: 0;
+                    min-width: 55px;
+                }
+
+                .number-input {
+                    width: 60px;
+                    padding: 6px 8px;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    font-size: 0.85rem;
+                    font-weight: 500;
+                    text-align: center;
+                    background: #f8fafc;
+                    color: #334155;
+                    transition: all 0.15s;
+                }
+
+                .number-input:hover {
+                    border-color: #cbd5e1;
+                }
+
+                .number-input:focus {
+                    outline: none;
+                    border-color: var(--primary);
+                    background: white;
+                    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.15);
+                }
+
+                .number-input.at-limit {
+                    border-color: #fcd34d;
+                    background: #fefce8;
+                }
+
+                .unit {
+                    font-size: 0.7rem;
+                    color: #94a3b8;
+                    margin-left: -4px;
+                }
+
+                .limit-hint {
+                    font-size: 0.9rem;
+                    cursor: help;
                 }
 
                 .toggle-group {
@@ -1271,70 +1457,218 @@ const PracticeSheetGenerator = () => {
                 /* ===== WORD ROW ===== */
                 .word-row {
                     display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    padding: 8px 0;
-                    border-bottom: 1px solid #e2e8f0;
+                    align-items: stretch;
+                    gap: 0;
+                    background: #fefce8; /* Match animated box background */
+                    border-radius: 12px;
+                    overflow: hidden;
+                    margin-bottom: 12px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                    position: relative; /* For absolute positioning if needed */
+                    padding: 6px 0; /* Add top/bottom padding inside the container */
                 }
 
                 .word-label {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
-                    gap: 2px;
-                    padding: 4px 8px;
-                    background: #f8fafc;
-                    border-radius: 8px;
+                    justify-content: space-between;
+                    padding: 8px 12px;
+                    background: rgba(252, 211, 77, 0.25);
                     flex-shrink: 0;
+                    min-width: 80px;
+                    border-right: 1px solid rgba(252, 211, 77, 0.4);
+                    position: relative;
+                }
+
+                .label-content {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 4px;
+                    flex: 1;
+                    justify-content: center;
                 }
 
                 .label-pinyin {
-                    font-size: 0.85rem;
-                    color: #dc2626;
-                    font-weight: 500;
+                    font-size: 1rem;
+                    color: #dc2626; /* Red for Pinyin */
+                    font-weight: 700;
+                    line-height: 1;
+                    font-family: 'Times New Roman', 'Noto Serif', serif; /* Attractive Serif Font */
                 }
 
                 .label-urdu {
-                    font-size: 0.9rem;
-                    color: #059669;
-                    font-weight: 600;
+                    font-size: 1.25rem;
+                    color: #059669; /* Green for Urdu */
+                    font-weight: 700;
                     direction: rtl;
                     font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
+                    line-height: 1.2;
+                    margin: 4px 0 8px 0; /* Added bottom margin for spacing */
                 }
 
                 .label-translation {
-                    font-size: 0.7rem;
-                    color: #2563eb;
-                    font-weight: 500;
+                    font-size: 0.77rem; /* Slightly larger */
+                    color: #334155;
+                    font-weight: 600;
                     text-align: center;
-                    max-width: 80px;
+                    max-width: 85px;
                     word-wrap: break-word;
+                    line-height: 1.1;
+                    font-family: 'Times New Roman', 'Noto Serif', serif;
+                    text-transform: capitalize;
                 }
 
                 .row-boxes {
                     display: flex;
-                    gap: 2px;
-                    flex-wrap: wrap;
+                    gap: 3px;
+                    flex-wrap: wrap; 
+                    align-items: center;
+                    flex: 1;
+                    padding-right: 0;
+                    padding-left: 3px;
                 }
 
+                /* Stroke button - Top-left fully visible */
                 .stroke-btn {
-                    margin-left: auto;
-                    background: #f1f5f9;
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    background: white;
                     border: none;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 8px;
-                    font-size: 1rem;
+                    border-right: 1px solid #fcd34d;
+                    border-bottom: 1px solid #fcd34d;
+                    width: 24px;
+                    height: 24px;
+                    border-top-left-radius: 12px;
+                    border-bottom-right-radius: 8px;
+                    color: #d97706;
+                    font-size: 11px;
                     cursor: pointer;
-                    transition: all 0.15s;
-                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 1px 1px 2px rgba(245, 158, 11, 0.1);
+                    transition: all 0.2s;
+                    z-index: 10;
+                    padding: 0;
                 }
 
                 .stroke-btn:hover {
-                    background: #e2e8f0;
+                    background: #fffbeb;
+                    width: 26px;
+                    height: 26px;
                 }
 
-                /* ===== SENTENCE BLOCK (NANO STYLE) ===== */
+                /* Play button - Bottom-Left mirror style */
+                .play-btn {
+                    position: absolute;
+                    left: 0;
+                    bottom: 0;
+                    background: white;
+                    border: none;
+                    border-right: 1px solid #fcd34d;
+                    border-top: 1px solid #fcd34d;
+                    width: 24px;
+                    height: 24px;
+                    border-bottom-left-radius: 12px;
+                    border-top-right-radius: 8px; /* Strict mirror of stroke button (12px outer, 8px inner) */
+                    /* Stroke button is Top-Left 12, Bottom-Right 8. 
+                       Mirror for Bottom-Left should be Bottom-Left 12, Top-Right 8.
+                       I previously set it to 12. User said "radius is not matchign". 
+                       Maybe they want strict 8px? */
+                    border-top-right-radius: 8px;
+                    color: #059669; /* Green for play */
+                    font-size: 10px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 1px -1px 2px rgba(245, 158, 11, 0.1);
+                    transition: all 0.2s;
+                    z-index: 10;
+                    padding: 0;
+                }
+
+                .play-btn:hover {
+                    background: #ecfdf5;
+                    width: 26px;
+                    height: 26px;
+                }
+
+                /* Popup styles update */
+                .stroke-modal {
+                    background: white;
+                    padding: 24px;
+                    border-radius: 16px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    position: relative;
+                    min-width: 300px;
+                }
+
+                .modal-header {
+                    text-align: center;
+                    margin-bottom: 16px;
+                    width: 100%;
+                }
+
+                .stroke-pinyin {
+                    font-size: 1.5rem;
+                    color: #dc2626;
+                    font-weight: 700;
+                    font-family: 'Times New Roman', serif;
+                    margin: 0;
+                }
+
+                .stroke-urdu {
+                    font-size: 1.2rem;
+                    color: #059669;
+                    font-weight: 700;
+                    font-family: 'Noto Nastaliq Urdu', serif;
+                    margin: 0;
+                }
+
+                .modal-play-btn {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    background: #fff;
+                    border: none;
+                    /* border-bottom: 1px solid #e2e8f0; */ /* Optional borders */
+                    /* border-right: 1px solid #e2e8f0; */
+                    color: #059669;
+                    width: 40px;
+                    height: 40px;
+                    border-top-left-radius: 16px; /* Match modal corner (16px) so it doesn't "pop out" */
+                    border-bottom-right-radius: 12px; /* Tab effect */
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
+                    cursor: pointer;
+                    margin: 0;
+                    transition: all 0.2s;
+                    z-index: 20;
+                    box-shadow: 2px 2px 6px -2px rgba(0,0,0,0.1);
+                }
+
+                .modal-play-btn:hover {
+                    transform: scale(1.1);
+                    background: #d1fae5;
+                    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+                }
+
+                .stroke-info {
+                    display: flex;
+                    gap: 24px;
+                    align-items: center;
+                    justify-content: center;
+                    margin-top: 16px;
+                }/* ===== SENTENCE BLOCK (NANO STYLE) ===== */
                 .sentence-container {
                     display: flex;
                     flex-wrap: wrap; /* Wrap to next line when needed */

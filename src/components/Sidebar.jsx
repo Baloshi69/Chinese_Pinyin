@@ -70,7 +70,7 @@ const Sidebar = ({ currentView, onNavigate }) => {
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="3"
-                    style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s' }}
+                    style={{ transform: isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}
                 >
                     <path d="M15 18l-6-6 6-6" />
                 </svg>
