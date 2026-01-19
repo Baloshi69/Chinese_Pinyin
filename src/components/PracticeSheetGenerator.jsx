@@ -259,6 +259,243 @@ const PracticeSheetGenerator = () => {
         );
     };
 
+    // ========== ANIMATED SENTENCE ROW COMPONENT ==========
+    // Auto-plays sequential animation of all characters continuously
+    const AnimatedSentenceRow = ({ chars, type, size }) => {
+        const writersRef = useRef([]);
+        const containerRefs = useRef([]);
+        const [currentCharIdx, setCurrentCharIdx] = useState(-1);
+        const [isReady, setIsReady] = useState(false);
+
+        // Initialize HanziWriters after mount
+        useEffect(() => {
+            if (!window.HanziWriter || chars.length === 0) return;
+
+            // Allow time for refs to be set
+            const initTimer = setTimeout(() => {
+                writersRef.current = [];
+
+                chars.forEach((char, idx) => {
+                    const container = containerRefs.current[idx];
+                    if (!container) return;
+
+                    const target = container.querySelector('.anim-target');
+                    if (target) target.innerHTML = '';
+
+                    const writer = window.HanziWriter.create(target, char, {
+                        width: size * 0.8,
+                        height: size * 0.8,
+                        padding: 2,
+                        showOutline: true,
+                        showCharacter: false,
+                        strokeColor: '#333',
+                        outlineColor: '#ddd',
+                        strokeAnimationSpeed: 0.8,
+                        delayBetweenStrokes: 60,
+                    });
+
+                    writersRef.current[idx] = writer;
+                });
+
+                setIsReady(true);
+            }, 100);
+
+            return () => {
+                clearTimeout(initTimer);
+                setIsReady(false);
+            };
+        }, [chars, size]);
+
+        // Start animation loop when ready
+        useEffect(() => {
+            if (!isReady || writersRef.current.length === 0) return;
+
+            let cancelled = false;
+
+            const playLoop = () => {
+                if (cancelled) return;
+
+                // Reset all characters first
+                writersRef.current.forEach(writer => {
+                    if (writer) writer.hideCharacter();
+                });
+                setCurrentCharIdx(-1);
+
+                let idx = 0;
+
+                const animateNext = () => {
+                    if (cancelled || idx >= chars.length) {
+                        // Finished all chars, wait and restart loop
+                        setCurrentCharIdx(-1);
+                        if (!cancelled) {
+                            setTimeout(playLoop, 1500);
+                        }
+                        return;
+                    }
+
+                    setCurrentCharIdx(idx);
+                    const writer = writersRef.current[idx];
+
+                    if (writer) {
+                        writer.animateCharacter({
+                            onComplete: () => {
+                                if (!cancelled) {
+                                    idx++;
+                                    setTimeout(animateNext, 400);
+                                }
+                            }
+                        });
+                    } else {
+                        idx++;
+                        setTimeout(animateNext, 100);
+                    }
+                };
+
+                setTimeout(animateNext, 300);
+            };
+
+            playLoop();
+
+            return () => {
+                cancelled = true;
+            };
+        }, [isReady, chars.length]);
+
+        return (
+            <div className="sentence-row animated-row">
+                {chars.map((char, idx) => (
+                    <div
+                        key={idx}
+                        className={`grid-box animated-box ${type} ${currentCharIdx === idx ? 'animating' : ''}`}
+                        style={{
+                            width: size,
+                            height: size,
+                            position: 'relative',
+                            flexShrink: 0,
+                            background: currentCharIdx === idx ? '#fef3c7' : '#fefce8',
+                            transition: 'background 0.3s',
+                        }}
+                    >
+                        <svg className="grid-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <rect x="1" y="1" width="98" height="98" fill="none" stroke={currentCharIdx === idx ? '#f59e0b' : '#fcd34d'} strokeWidth="2" />
+                            {(type === 'tian' || type === 'mi') && (
+                                <>
+                                    <line x1="50" y1="0" x2="50" y2="100" stroke="#fcd34d" strokeWidth="1" strokeDasharray="6 4" />
+                                    <line x1="0" y1="50" x2="100" y2="50" stroke="#fcd34d" strokeWidth="1" strokeDasharray="6 4" />
+                                </>
+                            )}
+                            {type === 'mi' && (
+                                <>
+                                    <line x1="0" y1="0" x2="100" y2="100" stroke="#fcd34d" strokeWidth="1" strokeDasharray="6 4" />
+                                    <line x1="100" y1="0" x2="0" y2="100" stroke="#fcd34d" strokeWidth="1" strokeDasharray="6 4" />
+                                </>
+                            )}
+                        </svg>
+                        <div
+                            ref={el => containerRefs.current[idx] = el}
+                            style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                            }}
+                        >
+                            <div className="anim-target"></div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    // ========== ANIMATED WORD BOX COMPONENT ==========
+    // Single character auto-play animation for word mode
+    const AnimatedWordBox = ({ char, type, size }) => {
+        const containerRef = useRef(null);
+        const writerRef = useRef(null);
+
+        useEffect(() => {
+            if (!window.HanziWriter || !char) return;
+
+            const initTimer = setTimeout(() => {
+                const target = containerRef.current?.querySelector('.anim-target');
+                if (!target) return;
+                target.innerHTML = '';
+
+                writerRef.current = window.HanziWriter.create(target, char, {
+                    width: size * 0.8,
+                    height: size * 0.8,
+                    padding: 2,
+                    showOutline: true,
+                    showCharacter: false,
+                    strokeColor: '#333',
+                    outlineColor: '#ddd',
+                    strokeAnimationSpeed: 0.8,
+                    delayBetweenStrokes: 60,
+                });
+
+                let cancelled = false;
+                const playLoop = () => {
+                    if (cancelled || !writerRef.current) return;
+                    writerRef.current.hideCharacter();
+                    writerRef.current.animateCharacter({
+                        onComplete: () => {
+                            if (!cancelled) {
+                                setTimeout(playLoop, 1500);
+                            }
+                        }
+                    });
+                };
+
+                setTimeout(playLoop, 300);
+
+                return () => { cancelled = true; };
+            }, 100);
+
+            return () => clearTimeout(initTimer);
+        }, [char, size]);
+
+        return (
+            <div
+                className={`grid-box animated-box ${type}`}
+                style={{
+                    width: size,
+                    height: size,
+                    position: 'relative',
+                    flexShrink: 0,
+                    background: '#fefce8',
+                }}
+            >
+                <svg className="grid-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <rect x="1" y="1" width="98" height="98" fill="none" stroke="#fcd34d" strokeWidth="2" />
+                    {(type === 'tian' || type === 'mi') && (
+                        <>
+                            <line x1="50" y1="0" x2="50" y2="100" stroke="#fcd34d" strokeWidth="1" strokeDasharray="6 4" />
+                            <line x1="0" y1="50" x2="100" y2="50" stroke="#fcd34d" strokeWidth="1" strokeDasharray="6 4" />
+                        </>
+                    )}
+                    {type === 'mi' && (
+                        <>
+                            <line x1="0" y1="0" x2="100" y2="100" stroke="#fcd34d" strokeWidth="1" strokeDasharray="6 4" />
+                            <line x1="100" y1="0" x2="0" y2="100" stroke="#fcd34d" strokeWidth="1" strokeDasharray="6 4" />
+                        </>
+                    )}
+                </svg>
+                <div
+                    ref={containerRef}
+                    style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                    }}
+                >
+                    <div className="anim-target"></div>
+                </div>
+            </div>
+        );
+    };
+
     // ========== WORD ROW COMPONENT ==========
     const WordRow = ({ char, pinyinText }) => {
         const totalBoxes = boxesPerRow;
@@ -277,18 +514,19 @@ const PracticeSheetGenerator = () => {
 
                 {/* Character Boxes */}
                 <div className="row-boxes">
-                    {/* Master character */}
-                    <GridBox char={char} type={gridType} opacity={1} size={boxSize} />
+                    {/* Animated master character */}
+                    <AnimatedWordBox char={char} type={gridType} size={boxSize} />
 
-                    {/* Faded tracing boxes */}
+                    {/* Faded tracing boxes - starts light, gets DARKER */}
                     {showTracing && Array.from({ length: fadeCount }).map((_, i) => {
-                        const fadeOpacity = 0.5 - (i * (0.4 / fadeCount));
+                        // Start at 0.2 (light), progress to 0.6 (darker)
+                        const fadeOpacity = 0.2 + (i * (0.4 / fadeCount));
                         return (
                             <GridBox
                                 key={`fade-${i}`}
                                 char={char}
                                 type={gridType}
-                                opacity={Math.max(0.1, fadeOpacity)}
+                                opacity={Math.min(0.6, fadeOpacity)}
                                 size={boxSize}
                             />
                         );
@@ -602,11 +840,8 @@ const PracticeSheetGenerator = () => {
 
                                             {/* Practice Rows */}
                                             <div className="sentence-practice-rows">
-                                                <div className="sentence-row">
-                                                    {chars.map((char, idx) => (
-                                                        <GridBox key={idx} char={char} type={gridType} opacity={1} size={boxSize} />
-                                                    ))}
-                                                </div>
+                                                {/* First row - Animated stroke order with play button */}
+                                                <AnimatedSentenceRow chars={chars} type={gridType} size={boxSize} />
                                                 {/* Faded tracing rows based on fadeCount */}
                                                 {showTracing && Array.from({ length: fadeCount }).map((_, fadeIdx) => {
                                                     const fadeOpacity = 0.5 - (fadeIdx * (0.4 / fadeCount));
@@ -1341,6 +1576,45 @@ const PracticeSheetGenerator = () => {
                     font-weight: 600;
                     direction: rtl;
                     font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
+                }
+
+                /* ===== ANIMATED SENTENCE ROW ===== */
+                .animated-sentence-row {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 8px;
+                }
+
+                .play-animation-btn {
+                    width: 36px;
+                    height: 36px;
+                    border: none;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                    color: white;
+                    font-size: 14px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+                    transition: all 0.2s;
+                    flex-shrink: 0;
+                    margin-top: 8px;
+                }
+
+                .play-animation-btn:hover:not(:disabled) {
+                    transform: scale(1.1);
+                    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.5);
+                }
+
+                .play-animation-btn:disabled {
+                    opacity: 0.7;
+                    cursor: not-allowed;
+                }
+
+                .animated-box.animating {
+                    /* Yellow background is sufficient indicator */
                 }
 
                 /* ===== PRACTICE ROWS ===== */
