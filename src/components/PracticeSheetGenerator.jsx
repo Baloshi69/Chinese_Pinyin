@@ -43,6 +43,42 @@ const PracticeSheetGenerator = () => {
             const py = pinyin(char, { toneType: 'none', type: 'array' })[0] || '';
             if (!py) return '';
 
+            // Standalone syllables mapping (w/y glides -> actual finals)
+            // These are syllables that appear standalone without a consonant initial
+            const standaloneToFinal = {
+                // w- glides (from u finals)
+                'wo': 'uo',    // 我 wǒ
+                'wu': 'u',     // 五 wǔ
+                'wa': 'ua',    // 哇 wā
+                'wai': 'uai',  // 外 wài
+                'wan': 'uan',  // 万 wàn
+                'wang': 'uang', // 王 wáng
+                'wei': 'uei',  // 为 wèi
+                'wen': 'uen',  // 问 wèn
+                'weng': 'ueng', // 翁 wēng
+                // y- glides (from i/ü finals)
+                'yi': 'i',     // 一 yī
+                'ya': 'ia',    // 呀 ya
+                'yan': 'ian',  // 眼 yǎn
+                'yang': 'iang', // 样 yàng
+                'yao': 'iao',  // 要 yào
+                'ye': 'ie',    // 也 yě
+                'yin': 'in',   // 音 yīn
+                'ying': 'ing', // 英 yīng
+                'yong': 'iong', // 用 yòng
+                'you': 'iou',  // 有 yǒu
+                'yu': 'ü',     // 鱼 yú  
+                'yuan': 'üan', // 元 yuán
+                'yue': 'üe',   // 月 yuè
+                'yun': 'ün',   // 云 yún
+            };
+
+            // Check if it's a standalone syllable first
+            if (standaloneToFinal[py]) {
+                const finalUrdu = pronunciationNotations.finals[standaloneToFinal[py]]?.urdu;
+                if (finalUrdu) return finalUrdu;
+            }
+
             // Known initials in order of length (longest first to match zh before z)
             const initials = ['zh', 'ch', 'sh', 'b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'z', 'c', 's', 'r'];
 
@@ -571,13 +607,17 @@ const PracticeSheetGenerator = () => {
                                                         <GridBox key={idx} char={char} type={gridType} opacity={1} size={boxSize} />
                                                     ))}
                                                 </div>
-                                                {showTracing && (
-                                                    <div className="sentence-row tracing-row">
-                                                        {chars.map((char, idx) => (
-                                                            <GridBox key={idx} char={char} type={gridType} opacity={0.25} size={boxSize} />
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                {/* Faded tracing rows based on fadeCount */}
+                                                {showTracing && Array.from({ length: fadeCount }).map((_, fadeIdx) => {
+                                                    const fadeOpacity = 0.5 - (fadeIdx * (0.4 / fadeCount));
+                                                    return (
+                                                        <div key={`fade-${fadeIdx}`} className="sentence-row tracing-row">
+                                                            {chars.map((char, idx) => (
+                                                                <GridBox key={idx} char={char} type={gridType} opacity={Math.max(0.1, fadeOpacity)} size={boxSize} />
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })}
                                                 {Array.from({ length: sentenceRows }).map((_, rowIdx) => (
                                                     <div key={rowIdx} className="sentence-row blank-row">
                                                         {chars.map((char, idx) => (
