@@ -21,7 +21,7 @@ const PracticeSheetGenerator = () => {
     const [showTracing, setShowTracing] = useState(true);
     const [strokeAnimChar, setStrokeAnimChar] = useState(null);
     const [studentName, setStudentName] = useState('');
-    const [sheetDate, setSheetDate] = useState('');
+    const [sheetDate, setSheetDate] = useState(new Date().toISOString().slice(0, 10));
     const strokeAnimRef = useRef(null);
 
     // ========== DERIVED DATA ==========
@@ -680,6 +680,180 @@ const PracticeSheetGenerator = () => {
         const content = pdfContentRef.current;
         if (!content) return;
 
+        // Temporarily hide the preview header for capture
+        const headerEl = content.querySelector('.sheet-header-preview');
+        let originalDisplay = '';
+        if (headerEl) {
+            originalDisplay = headerEl.style.display;
+            headerEl.style.display = 'none';
+        }
+
+        // Add pdf-mode class
+        content.classList.add('pdf-mode');
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 100)); // Allow layout to settle
+
+            // A4 Metrics @ 2x Scale (approx)
+            const A4_WIDTH_MM = 210;
+            const A4_HEIGHT_MM = 297;
+            const MARGIN_MM = 10;
+            const HEADER_HEIGHT_MM = 20; // Reduced header space
+
+            const CONTENT_WIDTH_MM = A4_WIDTH_MM - (2 * MARGIN_MM);
+            const CONTENT_HEIGHT_PER_PAGE_MM = A4_HEIGHT_MM - (2 * MARGIN_MM) - HEADER_HEIGHT_MM;
+
+            // 1. Capture FULL content as one giant canvas
+            const canvas = await html2canvas(content, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+            });
+
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const mmToPx = imgWidth / CONTENT_WIDTH_MM;
+            const pageHeightPx = CONTENT_HEIGHT_PER_PAGE_MM * mmToPx;
+
+            // 2. Analyze DOM for Page Breaks
+            // We need to find "cut points" (Y offsets in px) where we can split the canvas sans-cutting-blocks
+            const blocks = content.querySelectorAll('.sentence-block, .word-row');
+            const pageCuts = [];
+            let pageStartPx = 0;
+
+            // Helper to get Y relative to container
+            const containerRect = content.getBoundingClientRect();
+
+            // If no blocks (empty), just print one page
+            if (blocks.length === 0) {
+                pageCuts.push(imgHeight);
+            } else {
+                for (let i = 0; i < blocks.length; i++) {
+                    const block = blocks[i];
+                    const rect = block.getBoundingClientRect();
+
+                    // Use relative offset from container top, scaled to canvas factor (Scale 2)
+                    const relativeTop = (rect.top - containerRect.top) * 2;
+                    const relativeBottom = (rect.bottom - containerRect.top) * 2;
+
+                    // If this block starts past the current page cut + page height,
+                    // we need to cut.
+                    // Or simpler: does this block END past the current page limit?
+                    if (relativeBottom - pageStartPx > pageHeightPx) {
+                        try {
+                            // Must cut BEFORE this block if it's not the first on page
+                            if (relativeTop > pageStartPx) {
+                                pageCuts.push(relativeTop);
+                                pageStartPx = relativeTop;
+                            } else {
+                                // Huge block, force cut
+                                const forcedCut = pageStartPx + pageHeightPx;
+                                pageCuts.push(forcedCut);
+                                pageStartPx = forcedCut;
+                            }
+                        } catch (e) { console.warn("Break calc error", e); }
+                    }
+                }
+                // Add final cut at end of image if not exactly at cut
+                if (pageStartPx < imgHeight) {
+                    pageCuts.push(imgHeight);
+                }
+            }
+
+            // 3. Generate PDF Pages
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            const addHeader = (doc) => {
+                doc.setFontSize(11);
+                doc.setTextColor(50, 50, 50);
+                doc.setFont('times', 'normal');
+                const topY = MARGIN_MM + 8;
+
+                // Name
+                doc.text("Name: ", MARGIN_MM, topY);
+                if (studentName) {
+                    doc.text(studentName, MARGIN_MM + 15, topY);
+                    const nameWidth = doc.getTextWidth(studentName);
+                    doc.line(MARGIN_MM + 15, topY + 1, MARGIN_MM + 15 + Math.max(40, nameWidth), topY + 1);
+                } else {
+                    doc.line(MARGIN_MM + 15, topY + 1, MARGIN_MM + 70, topY + 1);
+                }
+
+                // Date
+                const dateLabelX = A4_WIDTH_MM - MARGIN_MM - 50;
+                doc.text("Date: ", dateLabelX, topY);
+                if (sheetDate) {
+                    doc.text(sheetDate, dateLabelX + 12, topY);
+                    const dateWidth = doc.getTextWidth(sheetDate);
+                    doc.line(dateLabelX + 12, topY + 1, dateLabelX + 12 + Math.max(30, dateWidth), topY + 1);
+                } else {
+                    doc.line(dateLabelX + 12, topY + 1, dateLabelX + 45, topY + 1);
+                }
+
+                // Separator
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.5);
+                doc.line(MARGIN_MM, MARGIN_MM + 14, A4_WIDTH_MM - MARGIN_MM, MARGIN_MM + 14);
+            };
+
+            let lastCutPx = 0;
+            // canvas slicing context
+            const helperCanvas = document.createElement('canvas');
+            const helperCtx = helperCanvas.getContext('2d');
+
+            for (let i = 0; i < pageCuts.length; i++) {
+                if (i > 0) pdf.addPage();
+                addHeader(pdf);
+
+                const cutPx = pageCuts[i];
+                let segmentHeightPx = cutPx - lastCutPx;
+
+                if (lastCutPx + segmentHeightPx > imgHeight) {
+                    segmentHeightPx = imgHeight - lastCutPx;
+                }
+
+                if (segmentHeightPx < 5) continue;
+
+                // Resize helper canvas
+                helperCanvas.width = imgWidth;
+                helperCanvas.height = segmentHeightPx;
+
+                // Draw slice
+                helperCtx.clearRect(0, 0, imgWidth, segmentHeightPx);
+                helperCtx.drawImage(
+                    canvas,
+                    0, lastCutPx, imgWidth, segmentHeightPx, // Source
+                    0, 0, imgWidth, segmentHeightPx          // Dest
+                );
+
+                const sliceImgData = helperCanvas.toDataURL('image/jpeg', 0.95);
+
+                // PDF Render
+                // Map segment height back to MM
+                const segmentHeightMM = segmentHeightPx / mmToPx;
+
+                pdf.addImage(sliceImgData, 'JPEG', MARGIN_MM, MARGIN_MM + HEADER_HEIGHT_MM, CONTENT_WIDTH_MM, segmentHeightMM);
+
+                lastCutPx = cutPx;
+            }
+
+            const filename = `practice-${studentName ? studentName.replace(/\s+/g, '-') : 'sheet'}-${new Date().toISOString().slice(0, 10)}.pdf`;
+            pdf.save(filename);
+        } catch (error) {
+            console.error('PDF generation failed:', error);
+            alert('Failed to generate PDF. Please try again.');
+        } finally {
+            if (headerEl) headerEl.style.display = originalDisplay;
+            content.classList.remove('pdf-mode');
+        }
+    };
+
+    // PDF Export Function (DEPRECATED)
+    const handleExportPDF_OLD = async () => {
+        const content = pdfContentRef.current;
+        if (!content) return;
+
         // Temporarily hide the preview header for capture so we can draw it manually on every page
         const headerEl = content.querySelector('.sheet-header-preview');
         let originalDisplay = '';
@@ -687,6 +861,9 @@ const PracticeSheetGenerator = () => {
             originalDisplay = headerEl.style.display;
             headerEl.style.display = 'none';
         }
+
+        // Add pdf-mode class to content to trigger styled swaps (static vs animated)
+        content.classList.add('pdf-mode');
 
         try {
             // A4 dimensions at 150 DPI
@@ -798,7 +975,12 @@ const PracticeSheetGenerator = () => {
         } catch (error) {
             console.error('PDF generation failed:', error);
             if (headerEl) headerEl.style.display = originalDisplay;
+            content.classList.remove('pdf-mode');
             alert('Failed to generate PDF. Please try again.');
+        } finally {
+            // cleanup
+            if (headerEl) headerEl.style.display = originalDisplay;
+            content.classList.remove('pdf-mode');
         }
     };
 
@@ -814,14 +996,14 @@ const PracticeSheetGenerator = () => {
         }}>
             <div style={{ fontSize: '1.1rem' }}>
                 <span style={{ fontWeight: 'bold' }}>Name: </span>
-                <span style={{ borderBottom: '1px solid #333', padding: '0 10px', minWidth: '150px', display: 'inline-block' }}>
-                    {studentName || '____________________'}
+                <span style={{ borderBottom: '1px solid #333', padding: '0 5px', minWidth: '200px', display: 'inline-block', height: '1.2em' }}>
+                    {studentName}
                 </span>
             </div>
             <div style={{ fontSize: '1.1rem' }}>
                 <span style={{ fontWeight: 'bold' }}>Date: </span>
-                <span style={{ borderBottom: '1px solid #333', padding: '0 10px', minWidth: '120px', display: 'inline-block' }}>
-                    {sheetDate || '__________________'}
+                <span style={{ borderBottom: '1px solid #333', padding: '0 5px', minWidth: '120px', display: 'inline-block', height: '1.2em' }}>
+                    {sheetDate}
                 </span>
             </div>
         </div>
@@ -1081,7 +1263,15 @@ const PracticeSheetGenerator = () => {
                                                 {/* Practice Rows */}
                                                 <div className="sentence-practice-rows">
                                                     {/* First row - Animated stroke order with play button */}
-                                                    <AnimatedSentenceRow chars={chars} type={gridType} size={boxSize} />
+                                                    <div className="animated-row-container">
+                                                        <AnimatedSentenceRow chars={chars} type={gridType} size={boxSize} />
+                                                    </div>
+                                                    {/* Static reference row for PDF export (hidden by default) */}
+                                                    <div className="sentence-row static-reference-row" style={{ display: 'none' }}>
+                                                        {chars.map((char, idx) => (
+                                                            <GridBox key={idx} char={char} type={gridType} size={boxSize} />
+                                                        ))}
+                                                    </div>
                                                     {/* Faded tracing rows based on fadeCount */}
                                                     {showTracing && Array.from({ length: fadeCount }).map((_, fadeIdx) => {
                                                         const fadeOpacity = 0.5 - (fadeIdx * (0.4 / Math.max(1, fadeCount)));
@@ -1165,6 +1355,25 @@ const PracticeSheetGenerator = () => {
                     top: 0;
                     right: 0;
                     left: 0;
+                }
+
+                /* PDF Mode Swaps & Cleanups */
+                .pdf-mode .animated-row-container {
+                    display: none !important;
+                }
+                .pdf-mode .static-reference-row {
+                    display: flex !important;
+                }
+                .pdf-mode .modal-play-btn {
+                    display: none !important;
+                }
+                .pdf-mode .sheet-header-preview {
+                    margin-bottom: 5px !important;
+                    padding-bottom: 5px !important;
+                }
+                .pdf-mode .settings-grid {
+                    /* Ensure no extra padding from hidden settings affecting layout */
+                    display: none !important;
                 }
 
                 @media print {
