@@ -20,6 +20,8 @@ const PracticeSheetGenerator = () => {
     const [showTranslation, setShowTranslation] = useState(false);
     const [showTracing, setShowTracing] = useState(true);
     const [strokeAnimChar, setStrokeAnimChar] = useState(null);
+    const [studentName, setStudentName] = useState('');
+    const [sheetDate, setSheetDate] = useState('');
     const strokeAnimRef = useRef(null);
 
     // ========== DERIVED DATA ==========
@@ -678,55 +680,152 @@ const PracticeSheetGenerator = () => {
         const content = pdfContentRef.current;
         if (!content) return;
 
+        // Temporarily hide the preview header for capture so we can draw it manually on every page
+        const headerEl = content.querySelector('.sheet-header-preview');
+        let originalDisplay = '';
+        if (headerEl) {
+            originalDisplay = headerEl.style.display;
+            headerEl.style.display = 'none';
+        }
+
         try {
-            // A4 dimensions at 150 DPI for good quality
+            // A4 dimensions at 150 DPI
             const A4_WIDTH_MM = 210;
             const A4_HEIGHT_MM = 297;
             const MARGIN_MM = 10;
-            const SCALE = 2; // Higher scale = better quality
+            const HEADER_HEIGHT_MM = 25; // Space for the header
+            const CONTENT_WIDTH_MM = A4_WIDTH_MM - (2 * MARGIN_MM);
+            const CONTENT_HEIGHT_PER_PAGE = A4_HEIGHT_MM - (2 * MARGIN_MM) - HEADER_HEIGHT_MM;
 
-            // Capture the content as a canvas
+            // Capture content (without header)
             const canvas = await html2canvas(content, {
-                scale: SCALE,
+                scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const imgWidth = A4_WIDTH_MM - (2 * MARGIN_MM);
-            const pageHeight = A4_HEIGHT_MM - (2 * MARGIN_MM);
+            // Restore header display immediately
+            if (headerEl) {
+                headerEl.style.display = originalDisplay;
+            }
 
-            // Calculate image height in mm (preserving aspect ratio)
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const imgWidth = CONTENT_WIDTH_MM;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-            // Create PDF
             const pdf = new jsPDF('p', 'mm', 'a4');
 
+            // Helper to draw header on a page
+            const addHeader = (doc) => {
+                doc.setFontSize(12);
+                doc.setTextColor(50, 50, 50);
+                doc.setFont('times', 'normal');
+
+                const topY = MARGIN_MM + 8;
+
+                // Name
+                doc.text("Name: ", MARGIN_MM, topY);
+                if (studentName) {
+                    doc.text(studentName, MARGIN_MM + 15, topY);
+                    // Underline name
+                    const nameWidth = doc.getTextWidth(studentName);
+                    doc.line(MARGIN_MM + 15, topY + 1, MARGIN_MM + 15 + Math.max(40, nameWidth), topY + 1);
+                } else {
+                    doc.line(MARGIN_MM + 15, topY + 1, MARGIN_MM + 60, topY + 1);
+                }
+
+                // Date
+                const dateLabelX = A4_WIDTH_MM - MARGIN_MM - 50;
+                doc.text("Date: ", dateLabelX, topY);
+                if (sheetDate) {
+                    doc.text(sheetDate, dateLabelX + 12, topY);
+                    const dateWidth = doc.getTextWidth(sheetDate);
+                    doc.line(dateLabelX + 12, topY + 1, dateLabelX + 12 + Math.max(30, dateWidth), topY + 1);
+                } else {
+                    doc.line(dateLabelX + 12, topY + 1, dateLabelX + 45, topY + 1);
+                }
+
+                // Separator line
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.5);
+                doc.line(MARGIN_MM, MARGIN_MM + 15, A4_WIDTH_MM - MARGIN_MM, MARGIN_MM + 15);
+            };
+
             let heightLeft = imgHeight;
-            let position = MARGIN_MM;
-            let pageNumber = 1;
+            let pageNumber = 0;
 
-            // Add first page
-            pdf.addImage(imgData, 'JPEG', MARGIN_MM, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-
-            // Add subsequent pages if content is longer than one page
+            // Loop to add pages
             while (heightLeft > 0) {
-                position = heightLeft - imgHeight + MARGIN_MM;
-                pdf.addPage();
+                if (pageNumber > 0) pdf.addPage();
+
+                addHeader(pdf);
+
+                // Calculate position: Shift image up by (pageNumber * contentHeight)
+                // We place the image at (MARGIN + HEADER) - (pageNumber * CONTENT_HEIGHT)
+                // Accessing the slice of the image corresponding to this page
+                const position = (MARGIN_MM + HEADER_HEIGHT_MM) - (pageNumber * CONTENT_HEIGHT_PER_PAGE);
+
                 pdf.addImage(imgData, 'JPEG', MARGIN_MM, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+
+                // Masking/Clipping is not native/easy here without more complex logic, 
+                // but usually PDF viewers handle the overflow by hiding it if we rely on page bounds.
+                // However, jsPDF might print drawing over the header if we aren't careful.
+                // A robust way uses a clipping rect, but simple addImage usually works if background is white.
+                // To be safe, we can add a white rectangle over the header Area *after* drawing image? 
+                // No, header is on top. Image is drawn. If image extends UP into header area (which it does for page 2+),
+                // we need to cover it.
+
+                // Draw white box to cover "previous page" content that spills into top margin/header
+                if (pageNumber > 0) {
+                    pdf.setFillColor(255, 255, 255);
+                    // Cover everything above the content start line
+                    pdf.rect(0, 0, A4_WIDTH_MM, MARGIN_MM + HEADER_HEIGHT_MM - 1, 'F');
+                    // Redraw header on top of the white box
+                    addHeader(pdf);
+                }
+
+                // Also cover bottom margin overflow
+                pdf.setFillColor(255, 255, 255);
+                pdf.rect(0, A4_HEIGHT_MM - MARGIN_MM, A4_WIDTH_MM, MARGIN_MM, 'F');
+
+                heightLeft -= CONTENT_HEIGHT_PER_PAGE;
                 pageNumber++;
             }
 
-            // Download
-            pdf.save(`practice-sheet-${new Date().toISOString().slice(0, 10)}.pdf`);
+            const filename = `practice-sheet-${studentName ? studentName.replace(/\s+/g, '-') + '-' : ''}${new Date().toISOString().slice(0, 10)}.pdf`;
+            pdf.save(filename);
         } catch (error) {
             console.error('PDF generation failed:', error);
+            if (headerEl) headerEl.style.display = originalDisplay;
             alert('Failed to generate PDF. Please try again.');
         }
     };
+
+    // ========== HEADER COMPONENT FOR PREVIEW ==========
+    const SheetHeaderPreview = () => (
+        <div className="sheet-header-preview" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: '20px',
+            borderBottom: '2px solid #333',
+            paddingBottom: '10px',
+            fontFamily: 'Times New Roman, serif'
+        }}>
+            <div style={{ fontSize: '1.1rem' }}>
+                <span style={{ fontWeight: 'bold' }}>Name: </span>
+                <span style={{ borderBottom: '1px solid #333', padding: '0 10px', minWidth: '150px', display: 'inline-block' }}>
+                    {studentName || '____________________'}
+                </span>
+            </div>
+            <div style={{ fontSize: '1.1rem' }}>
+                <span style={{ fontWeight: 'bold' }}>Date: </span>
+                <span style={{ borderBottom: '1px solid #333', padding: '0 10px', minWidth: '120px', display: 'inline-block' }}>
+                    {sheetDate || '__________________'}
+                </span>
+            </div>
+        </div>
+    );
 
     // ========== RENDER ==========
     return (
@@ -878,6 +977,31 @@ const PracticeSheetGenerator = () => {
                     </div>
                 </div>
 
+                {/* Header Inputs */}
+                <div className="settings-grid" style={{ paddingTop: 0, marginTop: '-10px' }}>
+                    <div className="setting-group" style={{ flex: 1 }}>
+                        <label>Student Name</label>
+                        <input
+                            type="text"
+                            className="chip-input"
+                            style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '6px 10px' }}
+                            value={studentName}
+                            onChange={(e) => setStudentName(e.target.value)}
+                            placeholder="Enter name (optional)"
+                        />
+                    </div>
+                    <div className="setting-group" style={{ flex: 1 }}>
+                        <label>Date</label>
+                        <input
+                            type="date"
+                            className="chip-input"
+                            style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '6px 10px' }}
+                            value={sheetDate}
+                            onChange={(e) => setSheetDate(e.target.value)}
+                        />
+                    </div>
+                </div>
+
                 {/* Input Section */}
                 <div className="control-section">
                     <label>{mode === 'word' ? 'Add Characters:' : 'Add Sentences (press Enter):'}</label>
@@ -916,108 +1040,115 @@ const PracticeSheetGenerator = () => {
             <div className="sheet-preview">
                 {/* Single container for PDF capture */}
                 <div ref={pdfContentRef} className="print-page" style={{ minHeight: 'auto' }}>
-                    {characters.length > 0 ? (
-                        mode === 'word' ? (
-                            characters.map((char, idx) => (
-                                <WordRow key={idx} char={char} pinyinText={getPinyin(char)} />
-                            ))
-                        ) : (
-                            <div className="sentence-container">
-                                {sentenceChips.map((sentence, sentenceIdx) => {
-                                    const chars = sentence.split('').filter(c => /[\u4e00-\u9fff]/.test(c));
+                    {/* Header checks for preview */}
+                    <SheetHeaderPreview />
 
-                                    return (
-                                        <div key={sentenceIdx} className="sentence-block">
-                                            {/* Sentence Header */}
-                                            <div className="sentence-header-compact">
-                                                <div className="sentence-meta">
-                                                    <span className="sentence-num">{sentenceIdx + 1}</span>
-                                                    {showTranslation && (
-                                                        <span className="sentence-meaning">
-                                                            {chars.map(c => getTranslation(c)).filter(t => t).join(' ')}
-                                                        </span>
-                                                    )}
+                    {
+                        characters.length > 0 ? (
+                            mode === 'word' ? (
+                                characters.map((char, idx) => (
+                                    <WordRow key={idx} char={char} pinyinText={getPinyin(char)} />
+                                ))
+                            ) : (
+                                <div className="sentence-container">
+                                    {sentenceChips.map((sentence, sentenceIdx) => {
+                                        const chars = sentence.split('').filter(c => /[\u4e00-\u9fff]/.test(c));
+
+                                        return (
+                                            <div key={sentenceIdx} className="sentence-block">
+                                                {/* Sentence Header */}
+                                                <div className="sentence-header-compact">
+                                                    <div className="sentence-meta">
+                                                        <span className="sentence-num">{sentenceIdx + 1}</span>
+                                                        {showTranslation && (
+                                                            <span className="sentence-meaning">
+                                                                {chars.map(c => getTranslation(c)).filter(t => t).join(' ')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="chars-flow">
+                                                        {chars.map((char, idx) => (
+                                                            <div key={idx} className="char-stack">
+                                                                {showPinyin && <span className="stack-pinyin">{getPinyin(char)}</span>}
+                                                                <span className="stack-hanzi">{char}</span>
+                                                                {showUrdu && <span className="stack-urdu">{getUrdu(char)}</span>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
 
-                                                <div className="chars-flow">
-                                                    {chars.map((char, idx) => (
-                                                        <div key={idx} className="char-stack">
-                                                            {showPinyin && <span className="stack-pinyin">{getPinyin(char)}</span>}
-                                                            <span className="stack-hanzi">{char}</span>
-                                                            {showUrdu && <span className="stack-urdu">{getUrdu(char)}</span>}
+                                                {/* Practice Rows */}
+                                                <div className="sentence-practice-rows">
+                                                    {/* First row - Animated stroke order with play button */}
+                                                    <AnimatedSentenceRow chars={chars} type={gridType} size={boxSize} />
+                                                    {/* Faded tracing rows based on fadeCount */}
+                                                    {showTracing && Array.from({ length: fadeCount }).map((_, fadeIdx) => {
+                                                        const fadeOpacity = 0.5 - (fadeIdx * (0.4 / Math.max(1, fadeCount)));
+                                                        return (
+                                                            <div key={`fade-${fadeIdx}`} className="sentence-row tracing-row">
+                                                                {chars.map((char, idx) => (
+                                                                    <GridBox key={idx} char={char} type={gridType} opacity={Math.max(0.1, fadeOpacity)} size={boxSize} />
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {/* Blank rows = total rows - shadow rows */}
+                                                    {Array.from({ length: Math.max(0, sentenceRows - fadeCount) }).map((_, rowIdx) => (
+                                                        <div key={rowIdx} className="sentence-row blank-row">
+                                                            {chars.map((char, idx) => (
+                                                                <GridBox key={idx} type={gridType} size={boxSize} />
+                                                            ))}
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
-
-                                            {/* Practice Rows */}
-                                            <div className="sentence-practice-rows">
-                                                {/* First row - Animated stroke order with play button */}
-                                                <AnimatedSentenceRow chars={chars} type={gridType} size={boxSize} />
-                                                {/* Faded tracing rows based on fadeCount */}
-                                                {showTracing && Array.from({ length: fadeCount }).map((_, fadeIdx) => {
-                                                    const fadeOpacity = 0.5 - (fadeIdx * (0.4 / Math.max(1, fadeCount)));
-                                                    return (
-                                                        <div key={`fade-${fadeIdx}`} className="sentence-row tracing-row">
-                                                            {chars.map((char, idx) => (
-                                                                <GridBox key={idx} char={char} type={gridType} opacity={Math.max(0.1, fadeOpacity)} size={boxSize} />
-                                                            ))}
-                                                        </div>
-                                                    );
-                                                })}
-                                                {/* Blank rows = total rows - shadow rows */}
-                                                {Array.from({ length: Math.max(0, sentenceRows - fadeCount) }).map((_, rowIdx) => (
-                                                    <div key={rowIdx} className="sentence-row blank-row">
-                                                        {chars.map((char, idx) => (
-                                                            <GridBox key={idx} type={gridType} size={boxSize} />
-                                                        ))}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
+                            )
+                        ) : (
+                            <div className="empty-state">
+                                <span className="empty-icon">📝</span>
+                                <p>Type Chinese characters above to generate your practice sheet</p>
                             </div>
                         )
-                    ) : (
-                        <div className="empty-state">
-                            <span className="empty-icon">📝</span>
-                            <p>Type Chinese characters above to generate your practice sheet</p>
-                        </div>
-                    )}
+                    }
                 </div>
             </div>
 
             {/* ===== STROKE ANIMATION MODAL ===== */}
-            {strokeAnimChar && (
-                <div className="stroke-modal-overlay" onClick={closeStrokeAnim}>
-                    <div className="stroke-modal" onClick={(e) => e.stopPropagation()}>
-                        <button className="modal-close" onClick={closeStrokeAnim}>×</button>
+            {
+                strokeAnimChar && (
+                    <div className="stroke-modal-overlay" onClick={closeStrokeAnim}>
+                        <div className="stroke-modal" onClick={(e) => e.stopPropagation()}>
+                            <button className="modal-close" onClick={closeStrokeAnim}>×</button>
 
-                        <div className="modal-header">
-                            <h3>Stroke Order</h3>
-                        </div>
+                            <div className="modal-header">
+                                <h3>Stroke Order</h3>
+                            </div>
 
-                        {/* Play Button */}
-                        <button
-                            className="modal-play-btn"
-                            onClick={() => playAudio(strokeAnimChar)}
-                            title="Play Audio"
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M8 5v14l11-7z" />
-                            </svg>
-                        </button>
+                            {/* Play Button */}
+                            <button
+                                className="modal-play-btn"
+                                onClick={() => playAudio(strokeAnimChar)}
+                                title="Play Audio"
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                            </button>
 
-                        <div ref={strokeAnimRef} className="stroke-stage"></div>
+                            <div ref={strokeAnimRef} className="stroke-stage"></div>
 
-                        <div className="stroke-info">
-                            <p className="stroke-pinyin">{getPinyin(strokeAnimChar)}</p>
-                            <p className="stroke-urdu">{getUrdu(strokeAnimChar)}</p>
+                            <div className="stroke-info">
+                                <p className="stroke-pinyin">{getPinyin(strokeAnimChar)}</p>
+                                <p className="stroke-urdu">{getUrdu(strokeAnimChar)}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* ===== STYLES ===== */}
             <style>{`
