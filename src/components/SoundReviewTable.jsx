@@ -66,15 +66,31 @@ const SoundReviewTable = () => {
                 changes[key] = val;
             }
         });
+        const json = JSON.stringify(changes, null, 2);
+
         console.log('--- EXPORT DATA START ---');
-        console.log(JSON.stringify(changes, null, 2));
+        console.log(json);
         console.log('--- EXPORT DATA END ---');
-        alert('Check Console for JSON export!');
+
+        navigator.clipboard.writeText(json).then(() => {
+            alert('JSON copied to clipboard! Paste it in the chat.');
+        }).catch(() => {
+            alert('Failed to copy. Please check the console output.');
+        });
     };
 
     return (
         <div style={{ padding: 20, height: '100vh', overflow: 'auto' }}>
             <h1>Sound Review</h1>
+
+            <div style={{ background: '#f0f0f0', padding: 10, marginBottom: 20, borderRadius: 5 }}>
+                <strong>Tone Legend:</strong>
+                <span style={{ marginLeft: 15 }}>Tone 1 (ā): High Level</span>
+                <span style={{ marginLeft: 15 }}>Tone 2 (á): Rising</span>
+                <span style={{ marginLeft: 15 }}>Tone 3 (ǎ): Dipping</span>
+                <span style={{ marginLeft: 15 }}>Tone 4 (à): Falling</span>
+            </div>
+
             <div style={{ marginBottom: 20, display: 'flex', gap: 10 }}>
                 <input
                     placeholder="Filter Pinyin..."
@@ -89,8 +105,8 @@ const SoundReviewTable = () => {
                         onChange={e => setDiffOnly(e.target.checked)}
                     /> Show Differences Only
                 </label>
-                <button onClick={exportData} style={{ padding: '5px 15px', background: 'green', color: 'white' }}>
-                    Export Changes to Console
+                <button onClick={exportData} style={{ padding: '5px 15px', background: 'green', color: 'white', cursor: 'pointer' }}>
+                    Copy Changes to Clipboard
                 </button>
             </div>
 
