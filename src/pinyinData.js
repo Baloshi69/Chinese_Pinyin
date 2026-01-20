@@ -222,16 +222,10 @@ export const pronunciationNotations = {
 
     // === A GROUP ===
     a: {
-      urdu: 'ا',           // Standard (Tone 2/4/Neutral base)
-      urduTone1: 'آ',      // Tone 1: Maddah for length (پھآ)
-      urduTone3: 'اء',     // Tone 3: Hamza for creaky voice (پھاء)
-      urduTone4: 'ا',      // Tone 4: Tashdid on initial handles intensity (پھّا)
-      note: 'Ends with Alif. bà uses bh to trigger falling tone [p].',
+      urdu: 'آ',           // Maddah (Universal)
+      note: 'Madda for a sound.',
       standalone: {
-        urdu: 'ا',
-        urduTone1: 'آ',
-        urduTone3: 'آء',
-        urduTone4: 'آ'
+        urdu: 'آ'
       }
     },
     ia: {
@@ -312,16 +306,10 @@ export const pronunciationNotations = {
       }
     },
     e: {
-      urdu: 'ہ',           // Standard: He (Schwa-like)
-      urduTone1: 'آہ',     // Tone 1: Maddah + He
-      urduTone3: 'ہء',     // Tone 3: He + Hamza
-      urduTone4: 'ہ',      // Tone 4: Standard
-      note: 'e',
+      urdu: 'َ',           // Zabar (Universal)
+      note: 'Zabar for e (schwa).',
       standalone: {
-        urdu: 'اے',
-        urduTone1: 'اے',
-        urduTone3: 'اےء',
-        urduTone4: 'اَے'
+        urdu: 'اے'
       }
     },
     ie: {
@@ -348,15 +336,10 @@ export const pronunciationNotations = {
 
     // === I GROUP ===
     i: {
-      urdu: 'ی',           // Standard
-      urduTone1: 'ِی',     // Tone 1: With Zer (پھِی)
-      urduTone3: 'یء',     // Tone 3: Hamza (پھیء)
-      urduTone4: 'ی',      // Tone 4: Tashdid on Initial (پھّی)
-      note: 'Uses Choti Ye for i.',
+      urdu: 'ِ',           // Zair (Universal)
+      note: 'Zair for i.',
       standalone: {
-        urdu: 'اِی',
-        urduTone1: 'اِی',
-        // yi3, yi4 mappings if needed
+        urdu: 'اِی'
       }
     },
     ai: {
@@ -375,31 +358,23 @@ export const pronunciationNotations = {
 
     // === U / Ü GROUP ===
     u: {
-      urdu: 'ُو',          // Standard
-      urduTone1: 'ُو',     // Tone 1: Same
-      urduTone2: 'و',      // Tone 2: No Pesh (پھو)
-      urduTone3: 'وء',     // Tone 3: Hamza (پھوء)
-      note: 'Uses Pesh + Wao for u sound.',
+      urdu: 'ُ',          // Pesh (Universal)
+      note: 'Pesh for u.',
       standalone: {
         urdu: 'اُو'
       }
     },
     ü: {
-      urdu: 'ِیُو', note: 'ü',
-      standalone: { urdu: 'اُو' } // yu
+      urdu: 'ُ', note: 'ü (Pesh)', // Simplification per research.md 5.2
+      standalone: { urdu: 'اُو' }
     },
 
     // === NASALS - AN GROUP ===
     an: {
-      urdu: 'ان',          // Standard
-      urduTone1: 'آن',     // Tone 1: Maddah (پھآن)
-      urduTone3: 'anء',    // Tone 3: Hamza (پھانء)
-      note: 'Ends with Noon.',
+      urdu: 'َنْ',          // Zabar + Noon + Jazam
+      note: 'Zabar + Noon + Jazam.',
       standalone: {
-        urdu: 'آن',
-        urduTone1: 'آن',
-        urduTone3: 'آنء',
-        urduTone4: 'عَن'
+        urdu: 'آن'
       }
     },
     ian: {
@@ -415,37 +390,25 @@ export const pronunciationNotations = {
 
     // === NASALS - EN GROUP ===
     en: {
-      urdu: 'ن',           // Standard 
-      urduTone1: 'آن',     // Tone 1: Maddah (پھآن) - As per user request for pen1
-      urduTone3: 'نء',     // Tone 3: Hamza (پھنء)
-      note: 'Mapped as پن in Urdu Pinyin Table 3.',
+      urdu: 'َنْ',           // Zabar + Noon + Jazam
+      note: 'Zabar + Noon + Jazam.',
       standalone: {
-        urdu: 'اَن',
-        urduTone1: 'اَن',
-        urduTone3: 'اَنء',
-        urduTone4: 'عَن'
+        urdu: 'اَن'
       }
     },
     in: {
-      urdu: 'ِن',          // Standard
-      urduTone1: 'ِین',    // Tone 1: Long 'een' (پھِین)
-      urduTone3: 'ِنء',    // Tone 3: Hamza (پھِنء)
-      note: 'Uses Zer (diacritic) + Noon for in sound.'
+      urdu: 'ِنْ',          // Zair + Noon + Jazam
+      note: 'Zair + Noon + Jazam.'
     },
-    uen: { urdu: 'ُن', note: 'un' },
-    ün: { urdu: 'ِیُن', note: 'ün' },
+    uen: { urdu: 'ُنْ', note: 'un (Pesh + Noon + Jazam)' },
+    ün: { urdu: 'ُنْ', note: 'ün (Pesh + Noon + Jazam)' },
 
     // === NASALS - ANG GROUP ===
     ang: {
-      urdu: 'انگ',         // Standard
-      urduTone1: 'آنگ',    // Tone 1: Maddah (پھآنگ)
-      urduTone3: 'انگء',   // Tone 3: Hamza (پھانگء)
-      note: 'Uses Noon + Gaf for ng sound.',
+      urdu: 'َاں',         // Zabar + Alif + Noon Ghunnah
+      note: 'Zabar + Alif + Noon Ghunnah.',
       standalone: {
-        urdu: 'آنگ',
-        urduTone1: 'آنگ',
-        urduTone3: 'آنگء',
-        urduTone4: 'آّنگ'
+        urdu: 'آں'
       }
     },
     iang: { urdu: 'یانگ', urduTone1: 'ِیانگ', note: 'iang' },
@@ -453,26 +416,19 @@ export const pronunciationNotations = {
 
     // === NASALS - ENG GROUP ===
     eng: {
-      urdu: 'نگ',          // Standard
-      urduTone1: 'آنگ',    // Tone 1: Maddah (پھآنگ) - As per user request for peng1
-      urduTone3: 'نگء',    // Tone 3: Hamza (پھنگء)
-      note: 'Mapped as پنگ in Urdu Pinyin Table 3.',
+      urdu: 'َں',          // Zabar + Noon Ghunnah
+      note: 'Zabar + Noon Ghunnah.',
       standalone: {
-        urdu: 'اَنگ',
-        urduTone1: 'اَنگ',
-        urduTone3: 'اَنگء',
-        urduTone4: 'عَنگ'
+        urdu: 'اَں'
       }
     },
     ing: {
-      urdu: 'ِنگ',         // Standard
-      urduTone1: 'ِینگ',   // Tone 1: Long (پھِینگ)
-      urduTone3: 'ِنگء',   // Tone 3: Hamza (پھِنگء)
-      note: 'Uses Zer + Noon + Gaf for ing sound.'
+      urdu: 'ِں',         // Zair + Noon Ghunnah
+      note: 'Zair + Noon Ghunnah.'
     },
     ueng: { urdu: 'ونگ', note: 'ueng' },
 
-    ong: { urdu: 'ُونگ', note: 'ong' },
+    ong: { urdu: 'ُوں', note: 'ong (Pesh + Wao + Noon Ghunnah)' },
     iong: { urdu: 'یونگ', urduTone1: 'ِیونگ', note: 'iong' }
   }
 };
@@ -653,8 +609,6 @@ export function getPhonetic(initialChar, finalChar, lang, displayMode = 'joined'
       initialText = iData.urdu || '';
       finalText = fData.urdu || '';
     }
-    initialText = iData[lang] || '';
-    finalText = fData[lang] || '';
   }
 
   // Floating Diacritic Fix for Separated Mode (Chart UI)
