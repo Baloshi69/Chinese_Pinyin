@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { initials, finals, getPhonetic, getDisplayPinyin, isValidSyllable } from '../pinyinData';
+import { initials, finals, getPhonetic, getDisplayPinyin, isValidSyllable, getStandalone, pronunciationNotations } from '../pinyinData';
 import oldData from '../old_pinyin_data.json';
 
 const SoundReviewTable = () => {
@@ -31,6 +31,73 @@ const SoundReviewTable = () => {
 
     const rows = useMemo(() => {
         const allRows = [];
+
+        // 1. Add Standalone Finals (Column 1)
+        finals.forEach(fin => {
+            // Check if final has a standalone form (e.g., 'a' -> 'a', 'i' -> null for row 1)
+            // We use getStandalone helper from pinyinData but need to check if it returns valid string
+            // Actually, getStandalone returns null if not valid.
+            // But we need to know the 'old' key format.
+            // In generate_old_data.cjs, we iterated initials only?
+            // Wait, generate_old_data.cjs looped: initials.forEach... finals.forEach.
+            // It missed standalone finals too!
+            // So 'oldData' likely doesn't have keys for standalone finals (e.g. "null-a-1").
+            // We will use 'N/A' for oldVal for standalone finals if missing.
+
+            // To be safe and match user request "include only finals like we have first colum",
+            // we manually check if this final row has a standalone representation in the chart.
+            // We can use a dummy initial 'null' or empty string for the key?
+            // Let's use a specific prefix for key: "standalone-final-tone"
+
+            // In pinyinData.js, 'standaloneFinals' object maps final -> standalone pinyin
+            // We can import that? No, not exported directly? Yes, getStandalone uses it.
+            // Let's assume we can get it via import or just rely on the chart logic logic:
+            // Chart logic: if (getStandalone(final)) ...
+
+            const standalonePinyin = getStandalone(fin);
+            if (standalonePinyin) {
+                 [1, 2, 3, 4].forEach(tone => {
+                    const key = `standalone-${fin}-${tone}`;
+                    const displayPinyin = standalonePinyin + tone;
+
+                    // For phonetic of standalone:
+                    // Use logic from Chart: pronunciationNotations.finals[fin].urdu
+                    // But we need tone logic?
+                    // Standalone finals also have tone variants?
+                    // pinyinData.js finals structure:
+                    // a: { urdu: 'آ', urduTone1: 'آ', ... }
+                    // Yes, they have tone overrides.
+                    // However, we don't have a helper to get standalone phonetic with tone.
+                    // I will replicate the logic simply here:
+                    const fData = pronunciationNotations.finals[fin];
+                    let newVal = '';
+                    if (tone === 1) newVal = fData.urduTone1 || fData.urdu;
+                    else if (tone === 2) newVal = fData.urduTone2 || fData.urdu;
+                    else if (tone === 3) newVal = fData.urduTone3 || fData.urdu;
+                    else if (tone === 4) newVal = fData.urduTone4 || fData.urdu;
+                    else newVal = fData.urdu;
+
+                    // Apply display mode (tatweel if needed, though usually joined)
+                    // We stick to 'joined' mode for review.
+
+                    const oldVal = oldData[key] || 'N/A';
+
+                    if (!diffOnly || newVal !== oldVal) {
+                        allRows.push({
+                            key,
+                            pinyin: displayPinyin,
+                            init: null,
+                            fin,
+                            tone,
+                            oldVal,
+                            newVal
+                        });
+                    }
+                 });
+            }
+        });
+
+        // 2. Add Initials * Finals
         initials.forEach(init => {
             finals.forEach(fin => {
                 const rowIndex = finals.indexOf(fin);
