@@ -3,12 +3,13 @@ import PinyinChart from './components/PinyinChart';
 
 import Sidebar from './components/Sidebar';
 import PracticeSheetGenerator from './components/PracticeSheetGenerator';
+import SoundReviewTable from './components/SoundReviewTable';
 
 
 function App() {
   const [displayMode, setDisplayMode] = useState('separated'); // Default to separated
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentView, setCurrentView] = useState('chart'); // 'chart' | 'practice'
+  const [currentView, setCurrentView] = useState('chart'); // 'chart' | 'practice' | 'review'
 
   // Attempt to fix "hover not working until click" by ensuring window has focus
   useEffect(() => {
@@ -52,6 +53,8 @@ function App() {
               />
             </main>
           </>
+        ) : currentView === 'review' ? (
+          <SoundReviewTable />
         ) : (
           <PracticeSheetGenerator />
         )}
