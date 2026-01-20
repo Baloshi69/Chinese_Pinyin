@@ -5,7 +5,29 @@ import oldData from '../old_pinyin_data.json';
 const SoundReviewTable = () => {
     const [filter, setFilter] = useState('');
     const [diffOnly, setDiffOnly] = useState(true);
-    const [userChoices, setUserChoices] = useState({});
+    // Load initial state from localStorage if available
+    const [userChoices, setUserChoices] = useState(() => {
+        try {
+            const saved = localStorage.getItem('soundReviewChoices');
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            console.error('Failed to load choices', e);
+            return {};
+        }
+    });
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 500;
+
+    // Save to localStorage on change
+    React.useEffect(() => {
+        try {
+            localStorage.setItem('soundReviewChoices', JSON.stringify(userChoices));
+        } catch (e) {
+            console.error('Failed to save choices', e);
+        }
+    }, [userChoices]);
 
     const rows = useMemo(() => {
         const allRows = [];
@@ -38,6 +60,11 @@ const SoundReviewTable = () => {
     }, [diffOnly]);
 
     const filteredRows = rows.filter(r => r.pinyin.includes(filter));
+
+    // Pagination Logic
+    const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
+    const currentRows = filteredRows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const reviewedCount = Object.keys(userChoices).length;
 
     const handleActionChange = (key, action) => {
         setUserChoices(prev => ({
@@ -91,28 +118,53 @@ const SoundReviewTable = () => {
                 <span style={{ marginLeft: 15 }}>Tone 4 (à): Falling</span>
             </div>
 
-            <div style={{ marginBottom: 20, display: 'flex', gap: 10 }}>
+            <div style={{ marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <input
                     placeholder="Filter Pinyin..."
                     value={filter}
-                    onChange={e => setFilter(e.target.value)}
+                    onChange={e => { setFilter(e.target.value); setCurrentPage(1); }}
                     style={{ padding: 5 }}
                 />
                 <label>
                     <input
                         type="checkbox"
                         checked={diffOnly}
-                        onChange={e => setDiffOnly(e.target.checked)}
+                        onChange={e => { setDiffOnly(e.target.checked); setCurrentPage(1); }}
                     /> Show Differences Only
                 </label>
                 <button onClick={exportData} style={{ padding: '5px 15px', background: 'green', color: 'white', cursor: 'pointer' }}>
                     Copy Changes to Clipboard
                 </button>
+                <div style={{ marginLeft: 'auto', fontWeight: 'bold' }}>
+                    Reviewed: {reviewedCount} / {filteredRows.length}
+                </div>
+            </div>
+
+            <div style={{ marginBottom: 10, display: 'flex', gap: 5, alignItems: 'center' }}>
+                <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                    style={{ padding: '5px 10px' }}
+                >
+                    Prev
+                </button>
+                <span>Page {currentPage} of {totalPages || 1}</span>
+                <button
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    style={{ padding: '5px 10px' }}
+                >
+                    Next
+                </button>
+                <span style={{ marginLeft: 10, fontSize: '0.9em', color: '#666' }}>
+                    (Showing {currentRows.length} items)
+                </span>
             </div>
 
             <table border="1" cellPadding="5" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#eee' }}>
+                        <th>#</th>
                         <th>Pinyin</th>
                         <th>Play</th>
                         <th>Old Urdu</th>
@@ -122,11 +174,13 @@ const SoundReviewTable = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {filteredRows.slice(0, 500).map(row => {
+                    {currentRows.map((row, idx) => {
+                        const globalIndex = (currentPage - 1) * itemsPerPage + idx + 1;
                         const choice = userChoices[row.key] || { action: 'new', customVal: '' };
                         const isDiff = row.oldVal !== row.newVal;
                         return (
                             <tr key={row.key} style={{ background: isDiff ? '#fff' : '#f9f9f9' }}>
+                                <td style={{ color: '#888', fontSize: '0.8em' }}>{globalIndex}</td>
                                 <td>{row.pinyin}</td>
                                 <td>
                                     <button onClick={() => playSound(row.pinyin, row.tone)}>▶</button>
@@ -156,7 +210,6 @@ const SoundReviewTable = () => {
                     })}
                 </tbody>
             </table>
-            {filteredRows.length > 500 && <div style={{ padding: 10, fontStyle: 'italic' }}>Showing first 500 rows...</div>}
         </div>
     );
 };
